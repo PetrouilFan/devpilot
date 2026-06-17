@@ -1,5 +1,5 @@
 import { App } from "@slack/bolt"
-import { createDevPilot, type ToolPart } from "@devpilot-ai/sdk"
+import { createOpencode, type ToolPart } from "@devpilot-ai/sdk"
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -14,7 +14,7 @@ console.log("- Signing secret present:", !!process.env.SLACK_SIGNING_SECRET)
 console.log("- App token present:", !!process.env.SLACK_APP_TOKEN)
 
 console.log("🚀 Starting devpilot server...")
-const devpilot = await createDevPilot({
+const devpilot = await createOpencode({
   port: 0,
 })
 console.log("✅ DevPilot server ready")
