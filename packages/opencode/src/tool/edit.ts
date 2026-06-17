@@ -32,15 +32,32 @@ function convertToLineEnding(text: string, ending: "\n" | "\r\n"): string {
   return text.replaceAll("\n", "\r\n")
 }
 
-const locks = new Map<string, Semaphore.Semaphore>()
+const locks = new Map<string, { semaphore: Semaphore.Semaphore; lastUsed: number }>()
+const MAX_LOCKS = 1000
 
 function lock(filePath: string) {
   const resolvedFilePath = FSUtil.resolve(filePath)
+  const now = Date.now()
   const hit = locks.get(resolvedFilePath)
-  if (hit) return hit
+  if (hit) {
+    hit.lastUsed = now
+    return hit.semaphore
+  }
+
+  if (locks.size >= MAX_LOCKS) {
+    let oldestKey: string | undefined
+    let oldestTime = Infinity
+    for (const [key, value] of locks) {
+      if (value.lastUsed < oldestTime) {
+        oldestTime = value.lastUsed
+        oldestKey = key
+      }
+    }
+    if (oldestKey) locks.delete(oldestKey)
+  }
 
   const next = Semaphore.makeUnsafe(1)
-  locks.set(resolvedFilePath, next)
+  locks.set(resolvedFilePath, { semaphore: next, lastUsed: now })
   return next
 }
 

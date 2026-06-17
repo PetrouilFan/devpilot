@@ -217,6 +217,7 @@ describe("run interactive runtime", () => {
               runPromptTurn: async () => {},
               selectSubagent: () => {},
               replayOnResize: async () => false,
+              sessionTitle: () => undefined,
               close: async () => {},
             }
           },

@@ -1,4 +1,4 @@
-import { Effect, Stream, Exit } from "effect"
+import { Effect, Stream, Exit, Duration, Cause } from "effect"
 import * as Tool from "./tool"
 import { BackgroundJob } from "@/background/job"
 import { Session } from "@/session/session"
@@ -14,6 +14,7 @@ import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner
 import type { TaskPromptOps } from "./task"
 import * as Truncate from "./truncate"
 import { Plugin } from "@/plugin"
+import { assertExternalDirectoryEffect } from "./external-directory"
 
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 
@@ -33,6 +34,34 @@ function cmd(shell: string, command: string, cwd: string, env: NodeJS.ProcessEnv
     env,
     stdin: "ignore",
     detached: process.platform !== "win32",
+  })
+}
+
+function captureOutput(
+  handle: { all: Stream.Stream<Uint8Array, unknown>; exitCode: Effect.Effect<number, unknown> },
+  timeoutMs: number,
+): Effect.Effect<string, unknown> {
+  return Effect.gen(function* () {
+    const outputChunks: string[] = []
+
+    yield* Stream.runForEach(Stream.decodeText(handle.all), (chunk) => {
+      outputChunks.push(chunk)
+      return Effect.void
+    }).pipe(
+      Effect.timeout(Duration.millis(timeoutMs)),
+      Effect.catchCause((cause) =>
+        Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.failCause(cause),
+      ),
+    )
+
+    yield* handle.exitCode.pipe(
+      Effect.timeout(Duration.millis(timeoutMs)),
+      Effect.catchCause((cause) =>
+        Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.failCause(cause),
+      ),
+    )
+
+    return outputChunks.join("")
   })
 }
 
@@ -98,33 +127,19 @@ export const BackgroundTool = Tool.define(
     ) {
       return Effect.gen(function* () {
         const mode = params.mode ?? "stream"
+        const timeoutMs = params.timeout ?? defaultTimeoutMs
 
-        const code: number | null = yield* Effect.scoped(
-          Effect.gen(function* () {
-            const handle = yield* spawner.spawn(cmd(shell, params.command, params.workdir ?? ".", shellEnv))
+        const handle = yield* spawner.spawn(cmd(shell, params.command, params.workdir ?? ".", shellEnv))
 
-            yield* Effect.forkScoped(
-              Stream.runForEach(Stream.decodeText(handle.all), (chunk) => {
-                if (mode === "stream") {
-                  ctx
-                    .metadata({
-                      metadata: {
-                        status: "streaming",
-                        output: chunk,
-                        description: params.description,
-                      },
-                    })
-                    .pipe(Effect.catch(() => Effect.void))
-                }
-                return Effect.void
-              }),
-            )
-
-            return yield* handle.exitCode.pipe(Effect.map((code) => code))
-          }),
+        const output = yield* Effect.race(
+          captureOutput(handle, timeoutMs),
+          Effect.sleep(Duration.millis(timeoutMs)).pipe(
+            Effect.flatMap(() => handle.kill({ forceKillAfter: "5 seconds" })),
+            Effect.andThen(() => Effect.fail(new Error("Command timed out"))),
+          ),
         ).pipe(Effect.orDie)
 
-        return code
+        return output
       })
     }
 
@@ -197,6 +212,17 @@ export const BackgroundTool = Tool.define(
               const cwd = params.workdir ? params.workdir : instanceCtx.directory
               const timeout = params.timeout ?? defaultTimeoutMs
 
+              // Check external directory permission
+              yield* assertExternalDirectoryEffect(ctx, cwd, { kind: "directory" })
+
+              // Check bash permission for the command
+              yield* ctx.ask({
+                permission: "bash",
+                patterns: [params.command],
+                always: [params.command],
+                metadata: { command: params.command, description: params.description, cwd },
+              })
+
               const shellEnv = yield* Effect.gen(function* () {
                 const extra = yield* plugin.trigger(
                   "shell.env",
@@ -231,7 +257,7 @@ export const BackgroundTool = Tool.define(
                           state,
                           text:
                             state === "completed"
-                              ? `Background command completed (job: ${jobID}). Exit code: ${text}\n\nOutput:\n${text}`
+                              ? `Background command completed (job: ${jobID}).\n\nOutput:\n${text}`
                               : `Background command failed (job: ${jobID}). Error:\n${text}`,
                         }),
                       },
@@ -239,6 +265,21 @@ export const BackgroundTool = Tool.define(
                   })
                   .pipe(Effect.catch(() => Effect.void))
               })
+
+              const runEffect = runInBackground(
+                {
+                  command: params.command!,
+                  description: params.description!,
+                  workdir: params.workdir,
+                  timeout: params.timeout,
+                  mode: params.mode,
+                },
+                ctx,
+                shell,
+                shellEnv,
+              )
+
+              const runEffectScoped = Effect.scoped(runEffect)
 
               yield* background.start({
                 id: jobID,
@@ -251,23 +292,12 @@ export const BackgroundTool = Tool.define(
                   mode: params.mode ?? "stream",
                 },
                 onPromote: Effect.void,
-                run: runInBackground(
-                  {
-                    command: params.command!,
-                    description: params.description!,
-                    workdir: params.workdir,
-                    timeout: params.timeout,
-                    mode: params.mode,
-                  },
-                  ctx,
-                  shell,
-                  shellEnv,
-                ).pipe(
+                run: runEffectScoped.pipe(
                   Effect.exit,
                   Effect.tap((exit) =>
                     Exit.isFailure(exit)
                       ? injectResult("error", String(exit.cause))
-                      : injectResult("completed", String(exit.value)),
+                      : injectResult("completed", exit.value),
                   ),
                   Effect.asVoid,
                   Effect.map(() => "done"),

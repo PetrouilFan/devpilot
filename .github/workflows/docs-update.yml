@@ -1,3 +1,4 @@
+# DISABLED: packages/web (docs site) has been removed
 name: docs-update
 
 on:
@@ -10,7 +11,7 @@ env:
 
 jobs:
   update-docs:
-    if: github.repository == 'sst/opencode'
+    if: false
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       id-token: write

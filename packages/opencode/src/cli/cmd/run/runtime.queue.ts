@@ -10,7 +10,7 @@
 // Resolves when the footer closes and all in-flight work finishes.
 import * as Locale from "@/util/locale"
 import { MessageID, PartID } from "@/session/schema"
-import { isExitCommand, isNewCommand } from "./prompt.shared"
+import { getGoalText, isExitCommand, isGoalCommand, isGrillmeCommand, isNewCommand } from "./prompt.shared"
 import type { FooterApi, FooterEvent, FooterQueuedPrompt, RunPrompt } from "./types"
 
 type Trace = {
@@ -29,6 +29,8 @@ export type QueueInput = {
   trace?: Trace
   onSend?: (prompt: RunPrompt) => void
   onNewSession?: () => void | Promise<void>
+  onGrillme?: () => void | Promise<void>
+  onGoal?: (goal: string | undefined) => void | Promise<void>
   run: (prompt: RunPrompt, signal: AbortSignal) => Promise<void>
 }
 
@@ -159,6 +161,18 @@ export async function runPromptQueue(input: QueueInput): Promise<void> {
               },
             )
             await input.onNewSession()
+            continue
+          }
+
+          if (prompt.mode !== "shell" && isGrillmeCommand(prompt.text)) {
+            syncQueue()
+            await input.onGrillme?.()
+            continue
+          }
+
+          if (prompt.mode !== "shell" && isGoalCommand(prompt.text)) {
+            syncQueue()
+            await input.onGoal?.(getGoalText(prompt.text))
             continue
           }
 

@@ -718,7 +718,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
     const builtin = command.options
-      .filter((opt) => !opt.disabled && !opt.id.startsWith("suggested.") && opt.slash)
+      .filter((opt) => !opt.id.startsWith("suggested.") && opt.slash)
       .map((opt) => ({
         id: opt.id,
         trigger: opt.slash!,

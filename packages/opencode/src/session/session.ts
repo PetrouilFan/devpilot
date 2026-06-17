@@ -779,6 +779,7 @@ export const layer: Layer.Layer<
         const next = {
           ...current,
           ...info,
+          metadata: info.metadata ? { ...current.metadata, ...info.metadata } : current.metadata,
           time: info.time ? { ...current.time, ...info.time } : current.time,
           share: info.share === null ? undefined : info.share ? { ...current.share, ...info.share } : current.share,
           summary: info.summary === null ? undefined : (info.summary ?? current.summary),

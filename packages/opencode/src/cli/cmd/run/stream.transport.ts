@@ -103,6 +103,7 @@ export type SessionTransport = {
   runPromptTurn(input: SessionTurnInput): Promise<void>
   selectSubagent(sessionID: string | undefined): void
   replayOnResize(input: SessionResizeReplayInput): Promise<boolean>
+  sessionTitle(): string | undefined
   close(): Promise<void>
 }
 
@@ -121,12 +122,14 @@ type State = {
   blockerTick: number
   selectedSubagent?: string
   blockers: Map<string, number>
+  sessionTitle?: string
 }
 
 type TransportService = {
   readonly runPromptTurn: (input: SessionTurnInput) => Effect.Effect<void, unknown>
   readonly selectSubagent: (sessionID: string | undefined) => Effect.Effect<void>
   readonly replayOnResize: (input: SessionResizeReplayInput) => Effect.Effect<boolean>
+  readonly sessionTitle: () => Effect.Effect<string | undefined>
   readonly close: () => Effect.Effect<void>
 }
 
@@ -143,6 +146,10 @@ function sid(event: Event): string | undefined {
 
   if (event.type === "message.part.updated") {
     return event.properties.part.sessionID
+  }
+
+  if (event.type === "session.updated") {
+    return event.properties.sessionID
   }
 
   if (
@@ -894,6 +901,10 @@ function createLayer(input: StreamInput) {
 
           trackBlocker(event)
 
+          if (event.type === "session.updated" && event.properties.sessionID === input.sessionID) {
+            state.sessionTitle = event.properties.info.title
+          }
+
           const prev = event.type === "message.part.updated" ? listSubagentTabs(state.subagent) : undefined
           const next = reduceSessionData({
             data: state.data,
@@ -1433,6 +1444,7 @@ function createLayer(input: StreamInput) {
           runPromptTurn,
           selectSubagent,
           replayOnResize,
+          sessionTitle: () => Effect.sync(() => state.sessionTitle),
           close,
         })
       }),
@@ -1457,6 +1469,7 @@ export async function createSessionTransport(input: StreamInput): Promise<Sessio
     runPromptTurn: (next) => runtime.runPromise((svc) => svc.runPromptTurn(next)),
     selectSubagent: (sessionID) => runtime.runSync((svc) => svc.selectSubagent(sessionID)),
     replayOnResize: (next) => runtime.runPromise((svc) => svc.replayOnResize(next)),
+    sessionTitle: () => runtime.runSync((svc) => svc.sessionTitle()),
     close: () => runtime.runPromise((svc) => svc.close()),
   }
 }

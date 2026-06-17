@@ -8,6 +8,7 @@ import type { FileSelection } from "@/context/file"
 import { useServer } from "@/context/server"
 import { useTabs } from "@/context/tabs"
 import { useServerSync, type ServerSync } from "@/context/server-sync"
+import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useLocal } from "@/context/local"
@@ -219,6 +220,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
   const [search] = useSearchParams<{ draftId?: string }>()
   const server = useServer()
   const tabs = useTabs()
+  const command = useCommand()
   const pendingKey = (sessionID: string) => ScopedKey.from(sdk().scope, sessionID)
 
   const errorMessage = (err: unknown) => {
@@ -497,6 +499,14 @@ export function createPromptSubmit(input: PromptSubmitInput) {
             })
             restoreInput()
           })
+        return
+      }
+
+      // Check for UI slash commands (like /grillme, /goal, etc.)
+      const uiCommand = command.options.find((opt) => opt.slash === commandName && !opt.disabled)
+      if (uiCommand) {
+        clearInput()
+        command.trigger(uiCommand.id, "slash")
         return
       }
     }

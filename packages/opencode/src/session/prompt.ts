@@ -1331,11 +1331,21 @@ export const layer = Layer.effect(
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
             const system = [...env, ...instructions, ...(skills ? [skills] : [])]
-            if (step > 5) {
+
+            const goal = session.metadata?.goal
+            if (goal) {
               system.push(
-                "You have been working on this task for several steps. If you believe the user's goal has been achieved, respond with a text summary and stop using tools. If the goal is not yet achieved, continue working with tools. Do not stop prematurely — only stop when you are confident the task is complete or you cannot make further progress.",
+                `LONG-TERM GOAL: ${goal}\n\nKeep this goal in mind. All actions should make progress toward it.`,
               )
             }
+
+            const grillMode = session.metadata?.grillMode
+            if (grillMode) {
+              system.unshift(
+                `GRILL MODE ACTIVE:\nYour ONLY job is to ask clarifying questions to understand the task as deeply as possible.\nDO NOT use any tools. DO NOT write code. DO NOT make assumptions.\nAsk ONE question at a time. Wait for the answer. Then ask the next.\nContinue until you have a complete understanding, then say "UNDERSTOOD" and summarize.`,
+              )
+            }
+
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({

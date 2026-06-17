@@ -1,3 +1,4 @@
+# DISABLED: packages/web (docs site) has been removed
 name: docs-locale-sync
 
 on:

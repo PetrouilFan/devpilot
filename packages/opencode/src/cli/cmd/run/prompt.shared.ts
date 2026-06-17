@@ -52,6 +52,20 @@ export function isNewCommand(input: string): boolean {
   return input.trim().toLowerCase() === "/new"
 }
 
+export function isGrillmeCommand(input: string): boolean {
+  return input.trim().toLowerCase() === "/grillme"
+}
+
+export function isGoalCommand(input: string): boolean {
+  return input.trim().toLowerCase().startsWith("/goal")
+}
+
+export function getGoalText(input: string): string | undefined {
+  const trimmed = input.trim()
+  const rest = trimmed.slice("/goal".length).trim()
+  return rest.length > 0 ? rest : undefined
+}
+
 export function createPromptHistory(items?: RunPrompt[]): PromptHistoryState {
   const list = (items ?? []).filter((item) => item.text.trim().length > 0).map(promptCopy)
   const next: RunPrompt[] = []

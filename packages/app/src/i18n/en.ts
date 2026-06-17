@@ -90,6 +90,10 @@ export const dict = {
   "command.session.share.description": "Share this session and copy the URL to clipboard",
   "command.session.unshare": "Unshare session",
   "command.session.unshare.description": "Stop sharing this session",
+  "command.session.goal": "Set long-term goal",
+  "command.session.goal.description": "Set or clear a long-term goal for this session",
+  "command.session.grillme": "Toggle Grill Mode",
+  "command.session.grillme.description": "Toggle continuous questioning mode to deeply understand the task",
 
   "palette.search.placeholder": "Search files, commands, and sessions",
   "palette.empty": "No results found",

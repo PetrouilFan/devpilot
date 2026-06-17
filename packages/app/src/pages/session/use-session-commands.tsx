@@ -18,12 +18,66 @@ import { createSessionTabs } from "@/pages/session/helpers"
 import { extractPromptFromParts } from "@/utils/prompt"
 import { UserMessage } from "@devpilot-ai/sdk/v2"
 import { useSessionLayout } from "@/pages/session/session-layout"
+import { createSignal, type JSX } from "solid-js"
 
 export type SessionCommandContext = {
   navigateMessageByOffset: (offset: number) => void
   setActiveMessage: (message: UserMessage | undefined) => void
   focusInput: () => void
   review?: () => boolean
+}
+
+function DialogPrompt(props: {
+  title: string
+  description?: string
+  placeholder?: string
+  defaultValue?: string
+  onSubmit: (value: string | null) => void
+}) {
+  const [value, setValue] = createSignal(props.defaultValue ?? "")
+  const [error, setError] = createSignal<string | null>(null)
+
+  const handleSubmit = (e: Event) => {
+    e.preventDefault()
+    if (value().trim() || !props.defaultValue) {
+      props.onSubmit(value().trim() || null)
+    } else {
+      setError("Please enter a value")
+    }
+  }
+
+  const handleCancel = () => {
+    props.onSubmit(null)
+  }
+
+  return (
+    <div class="dialog-prompt" style={{ "min-width": "320px", padding: "24px" }}>
+      <h3 style={{ margin: "0 0 8px", "font-size": "16px", "font-weight": 600 }}>{props.title}</h3>
+      {props.description && <p style={{ margin: "0 0 16px", "font-size": "13px", color: "var(--text-muted)" }}>{props.description}</p>}
+      <form onSubmit={handleSubmit} style={{ display: "flex", "flex-direction": "column", gap: "12px" }}>
+        <input
+          type="text"
+          placeholder={props.placeholder}
+          value={value()}
+          onInput={(e) => { setValue(e.currentTarget.value); setError(null) }}
+          style={{
+            padding: "8px 12px",
+            border: "1px solid var(--border)",
+            "border-radius": "6px",
+            "font-size": "14px",
+            background: "var(--bg)",
+            color: "var(--text)",
+          }}
+          autofocus
+        />
+        {error() && <span style={{ color: "var(--danger)", "font-size": "12px" }}>{error()}</span>}
+        <div style={{ display: "flex", "justify-content": "flex-end", gap: "8px", "margin-top": "8px" }}>
+          <button type="button" onClick={handleCancel} style={{ padding: "8px 16px", border: "1px solid var(--border)", "border-radius": "6px", background: "var(--bg)", color: "var(--text)", cursor: "pointer" }}>Cancel</button>
+          <button type="submit" style={{ padding: "8px 16px", border: "none", "border-radius": "6px", background: "var(--primary)", color: "var(--primary-foreground)", cursor: "pointer" }}>Submit</button>
+        </div>
+      </form>
+    </div>
+  )
 }
 
 const withCategory = (category: string) => {
@@ -414,6 +468,51 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       slash: "fork",
       disabled: !params.id || visibleUserMessages().length === 0,
       onSelect: fork,
+    }),
+    sessionCommand({
+      id: "session.goal",
+      title: language.t("command.session.goal"),
+      description: language.t("command.session.goal.description"),
+      slash: "goal",
+      disabled: !params.id,
+      onSelect: () => {
+        const id = params.id
+        if (!id) return
+        const current = info()?.metadata?.goal as string | undefined
+        dialog.show(() => (
+          <DialogPrompt
+            title="Set Long-Term Goal"
+            description={current ? `Current goal: ${current}` : "Enter a long-term goal for this session"}
+            placeholder={current ?? "e.g. Build a complete authentication system with JWT tokens"}
+            defaultValue={current}
+            onSubmit={async (goal) => {
+              if (goal === null) return
+              await sdk().client.session.update({
+                sessionID: id,
+                metadata: goal ? { goal } : {},
+              })
+              showToast({ title: goal ? "Goal set" : "Goal cleared", variant: "success" })
+            }}
+          />
+        ))
+      },
+    }),
+    sessionCommand({
+      id: "session.grillme",
+      title: language.t("command.session.grillme"),
+      description: language.t("command.session.grillme.description"),
+      slash: "grillme",
+      disabled: !params.id,
+      onSelect: () => {
+        const id = params.id
+        if (!id) return
+        const current = (info()?.metadata?.grillMode as boolean | undefined) ?? false
+        sdk().client.session.update({
+          sessionID: id,
+          metadata: { grillMode: !current },
+        })
+        showToast({ title: !current ? "Grill Mode ON" : "Grill Mode OFF", variant: "success" })
+      },
     }),
   ]
 

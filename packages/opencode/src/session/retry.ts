@@ -27,12 +27,16 @@ export const RETRY_INITIAL_DELAY = 2000
 export const RETRY_BACKOFF_FACTOR = 2
 export const RETRY_MAX_DELAY_NO_HEADERS = 30_000 // 30 seconds
 export const RETRY_MAX_DELAY = 2_147_483_647 // max 32-bit signed integer for setTimeout
+export const RETRY_LONG_BACKOFF_THRESHOLD = 60 * 60 * 1000 // 1 hour
+export const RETRY_LONG_BACKOFF_DELAY = 10 * 60 * 1000 // 10 minutes
+export const RETRY_CIRCUIT_BREAKER_THRESHOLD = 20 // consecutive failures
+export const RETRY_CIRCUIT_OPEN_DELAY = 30 * 60 * 1000 // 30 minutes
 
 function cap(ms: number) {
   return Math.min(ms, RETRY_MAX_DELAY)
 }
 
-export function delay(attempt: number, error?: SessionV1.APIError) {
+export function delay(attempt: number, error?: SessionV1.APIError, startTime?: number) {
   if (error) {
     const headers = error.data.responseHeaders
     if (headers) {
@@ -58,11 +62,21 @@ export function delay(attempt: number, error?: SessionV1.APIError) {
         }
       }
 
-      return cap(RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1))
+      const baseDelay = RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1)
+      return cap(baseDelay)
     }
   }
 
-  return cap(Math.min(RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1), RETRY_MAX_DELAY_NO_HEADERS))
+  const baseDelay = Math.min(RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1), RETRY_MAX_DELAY_NO_HEADERS)
+
+  if (startTime !== undefined) {
+    const elapsed = Date.now() - startTime
+    if (elapsed > RETRY_LONG_BACKOFF_THRESHOLD) {
+      return RETRY_LONG_BACKOFF_DELAY
+    }
+  }
+
+  return cap(baseDelay)
 }
 
 export function retryable(error: Err, provider: string) {
@@ -122,6 +136,24 @@ export function retryable(error: Err, provider: string) {
     return { message: error.data.message.includes("Overloaded") ? "Provider is overloaded" : error.data.message }
   }
 
+  // Handle structured JSON errors thrown by processor (new format)
+  if (error instanceof Error && !SessionV1.APIError.isInstance(error) && !SessionV1.ContextOverflowError.isInstance(error)) {
+    const json = parseJSON(error.message)
+    if (json && typeof json === "object" && typeof json.message === "string") {
+      if (json.retryable === false) return undefined
+      const msg = json.message
+      const lower = msg.toLowerCase()
+      if (
+        lower.includes("rate increased too quickly") ||
+        lower.includes("rate limit") ||
+        lower.includes("too many requests")
+      ) {
+        return { message: msg }
+      }
+      return { message: json.classification === "provider_overloaded" ? "Provider is overloaded" : msg }
+    }
+  }
+
   // Check for rate limit patterns in plain text error messages
   const msg = isRecord(error.data) ? error.data.message : undefined
   if (typeof msg === "string") {
@@ -176,21 +208,50 @@ function parseJSON(value: unknown) {
 export function policy(opts: {
   provider: string
   parse: (error: unknown) => Err
-  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<void>
+  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number; circuitOpen?: boolean }) => Effect.Effect<void>
 }) {
+  let consecutiveFailures = 0
+  let circuitOpen = false
+  let circuitOpenTime: number | undefined
+  const startTime = Date.now()
+
   return Schedule.fromStepWithMetadata(
     Effect.succeed((meta: Schedule.InputMetadata<unknown>) => {
       const error = opts.parse(meta.input)
       const retry = retryable(error, opts.provider)
-      if (!retry) return Cause.done(meta.attempt)
+      if (!retry) {
+        consecutiveFailures = 0
+        circuitOpen = false
+        circuitOpenTime = undefined
+        return Cause.done(meta.attempt)
+      }
       return Effect.gen(function* () {
-        const wait = delay(meta.attempt, SessionV1.APIError.isInstance(error) ? error : undefined)
+        if (!circuitOpen) {
+          consecutiveFailures++
+          if (consecutiveFailures >= RETRY_CIRCUIT_BREAKER_THRESHOLD) {
+            circuitOpen = true
+            circuitOpenTime = Date.now()
+            yield* opts.set({
+              attempt: meta.attempt,
+              message: `Circuit breaker opened after ${consecutiveFailures} consecutive failures. Pausing for ${Math.round(RETRY_CIRCUIT_OPEN_DELAY / 60000)} minutes...`,
+              action: undefined,
+              next: circuitOpenTime + RETRY_CIRCUIT_OPEN_DELAY,
+              circuitOpen: true,
+            })
+            yield* Effect.sleep(Duration.millis(RETRY_CIRCUIT_OPEN_DELAY))
+            circuitOpen = false
+            consecutiveFailures = 0
+          }
+        }
+
+        const wait = delay(meta.attempt, SessionV1.APIError.isInstance(error) ? error : undefined, startTime)
         const now = yield* Clock.currentTimeMillis
         yield* opts.set({
           attempt: meta.attempt,
           message: retry.message,
           action: retry.action,
           next: now + wait,
+          circuitOpen,
         })
         return [meta.attempt, Duration.millis(wait)] as [number, Duration.Duration]
       })

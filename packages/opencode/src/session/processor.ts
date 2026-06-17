@@ -529,7 +529,7 @@ export const layer = Layer.effect(
                   part.type === "tool" &&
                   part.tool === value.name &&
                   part.state.status !== "pending" &&
-                  JSON.stringify(part.state.input) === JSON.stringify(input),
+                  isEquivalentInput(part.state.input, input),
               )
             ) {
               return
@@ -671,7 +671,12 @@ export const layer = Layer.effect(
           }
 
           case "provider-error":
-            throw new Error(value.message)
+            throw new Error(JSON.stringify({
+              message: value.message,
+              classification: value.classification,
+              retryable: value.retryable,
+              providerMetadata: value.providerMetadata,
+            }))
 
           case "step-start":
             if (!ctx.snapshot) ctx.snapshot = yield* snapshot.track()
@@ -878,7 +883,7 @@ export const layer = Layer.effect(
 
         yield* Effect.forEach(
           Object.values(ctx.toolcalls),
-          (call) => Deferred.await(call.done).pipe(Effect.timeout("250 millis"), Effect.ignore),
+          (call) => Deferred.await(call.done).pipe(Effect.timeout("5 seconds"), Effect.ignore),
           { concurrency: "unbounded" },
         )
 
@@ -1080,5 +1085,21 @@ export const node = LayerNode.make(layer, [
   RuntimeFlags.node,
   Database.node,
 ])
+
+function isEquivalentInput(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (a == null || b == null) return a === b
+  if (typeof a !== typeof b) return false
+  if (typeof a !== "object") return a === b
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    return a.every((item, i) => isEquivalentInput(item, b[i]))
+  }
+  const keysA = Object.keys(a as Record<string, unknown>)
+  const keysB = Object.keys(b as Record<string, unknown>)
+  if (keysA.length !== keysB.length) return false
+  return keysA.every((key) => isEquivalentInput((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]))
+}
 
 export * as SessionProcessor from "./processor"
