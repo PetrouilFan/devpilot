@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "opencode",
+  "name": "devpilot",
   "description": "AI-powered development tool",
   "private": true,
   "type": "module",
@@ -108,9 +108,9 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.933.0",
-    "@opencode-ai/plugin": "workspace:*",
-    "@opencode-ai/script": "workspace:*",
-    "@opencode-ai/sdk": "workspace:*",
+    "@devpilot-ai/plugin": "workspace:*",
+    "@devpilot-ai/script": "workspace:*",
+    "@devpilot-ai/sdk": "workspace:*",
     "heap-snapshot-toolkit": "1.1.3",
     "typescript": "catalog:"
   },

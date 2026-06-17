@@ -1,26 +1,26 @@
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { LayerNode } from "@devpilot-ai/core/effect/layer-node"
 import { and, eq, sql } from "drizzle-orm"
-import { Database } from "@opencode-ai/core/database/database"
-import { ProjectDirectoryTable, ProjectTable } from "@opencode-ai/core/project/sql"
-import { ProjectDirectories } from "@opencode-ai/core/project/directories"
-import { SessionTable } from "@opencode-ai/core/session/sql"
-import { WorkspaceTable } from "@opencode-ai/core/control-plane/workspace.sql"
-import { Flag } from "@opencode-ai/core/flag/flag"
+import { Database } from "@devpilot-ai/core/database/database"
+import { ProjectDirectoryTable, ProjectTable } from "@devpilot-ai/core/project/sql"
+import { ProjectDirectories } from "@devpilot-ai/core/project/directories"
+import { SessionTable } from "@devpilot-ai/core/session/sql"
+import { WorkspaceTable } from "@devpilot-ai/core/control-plane/workspace.sql"
+import { Flag } from "@devpilot-ai/core/flag/flag"
 import { GlobalBus } from "@/bus/global"
-import { which } from "@opencode-ai/core/util/which"
+import { which } from "@devpilot-ai/core/util/which"
 import { Command } from "@/command"
 import { InstanceState } from "@/effect/instance-state"
 import { Effect, Layer, Scope, Context, Stream, Types, Schema } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
-import { FSUtil } from "@opencode-ai/core/fs-util"
-import { AppProcess } from "@opencode-ai/core/process"
-import { ProjectV2 } from "@opencode-ai/core/project"
-import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
-import { AbsolutePath, NonNegativeInt, optionalOmitUndefined } from "@opencode-ai/core/schema"
-import { serviceUse } from "@opencode-ai/core/effect/service-use"
+import { FSUtil } from "@devpilot-ai/core/fs-util"
+import { AppProcess } from "@devpilot-ai/core/process"
+import { ProjectV2 } from "@devpilot-ai/core/project"
+import { CrossSpawnSpawner } from "@devpilot-ai/core/cross-spawn-spawner"
+import { AbsolutePath, NonNegativeInt, optionalOmitUndefined } from "@devpilot-ai/core/schema"
+import { serviceUse } from "@devpilot-ai/core/effect/service-use"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { EventV2Bridge } from "@/event-v2-bridge"
-import { EventV2 } from "@opencode-ai/core/event"
+import { EventV2 } from "@devpilot-ai/core/event"
 
 const ProjectVcs = Schema.Literal("git")
 
@@ -127,7 +127,7 @@ export interface Interface {
   readonly removeSandbox: (id: ProjectV2.ID, directory: string) => Effect.Effect<void>
 }
 
-export class Service extends Context.Service<Service, Interface>()("@opencode/Project") {}
+export class Service extends Context.Service<Service, Interface>()("@devpilot/Project") {}
 
 type GitResult = { code: number; text: string; stderr: string }
 
@@ -168,7 +168,7 @@ export const layer = Layer.effect(
         }),
       )
 
-    const fakeVcs = Schema.decodeUnknownSync(Schema.optional(ProjectVcs))(Flag.OPENCODE_FAKE_VCS)
+    const fakeVcs = Schema.decodeUnknownSync(Schema.optional(ProjectVcs))(Flag.DEVPILOT_FAKE_VCS)
 
     const scope = yield* Scope.Scope
 

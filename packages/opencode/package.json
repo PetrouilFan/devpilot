@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "version": "1.17.7",
-  "name": "opencode",
+  "name": "devpilot",
   "type": "module",
   "license": "MIT",
   "private": true,
@@ -16,7 +16,7 @@
     "dev:temporary": "bun run --conditions=browser ./src/temporary.ts"
   },
   "bin": {
-    "opencode": "./bin/opencode"
+    "devpilot": "./bin/devpilot"
   },
   "exports": {
     "./*": "./src/*.ts"
@@ -31,9 +31,9 @@
   "devDependencies": {
     "@babel/core": "7.28.4",
     "@octokit/webhooks-types": "7.6.1",
-    "@opencode-ai/core": "workspace:*",
-    "@opencode-ai/http-recorder": "workspace:*",
-    "@opencode-ai/script": "workspace:*",
+    "@devpilot-ai/core": "workspace:*",
+    "@devpilot-ai/http-recorder": "workspace:*",
+    "@devpilot-ai/script": "workspace:*",
     "@standard-schema/spec": "1.0.0",
     "@tsconfig/bun": "catalog:",
     "@types/babel__core": "7.20.5",
@@ -76,6 +76,12 @@
     "@ai-sdk/xai": "3.0.82",
     "@aws-sdk/credential-providers": "3.1057.0",
     "@clack/prompts": "1.0.0-alpha.1",
+    "@devpilot-ai/llm": "workspace:*",
+    "@devpilot-ai/plugin": "workspace:*",
+    "@devpilot-ai/script": "workspace:*",
+    "@devpilot-ai/sdk": "workspace:*",
+    "@devpilot-ai/server": "workspace:*",
+    "@devpilot-ai/tui": "workspace:*",
     "@effect/opentelemetry": "catalog:",
     "@effect/platform-node": "catalog:",
     "@ff-labs/fff-bun": "0.9.4",
@@ -84,12 +90,6 @@
     "@octokit/graphql": "9.0.2",
     "@octokit/rest": "catalog:",
     "@openauthjs/openauth": "catalog:",
-    "@opencode-ai/llm": "workspace:*",
-    "@opencode-ai/plugin": "workspace:*",
-    "@opencode-ai/script": "workspace:*",
-    "@opencode-ai/sdk": "workspace:*",
-    "@opencode-ai/server": "workspace:*",
-    "@opencode-ai/tui": "workspace:*",
     "@openrouter/ai-sdk-provider": "2.9.0",
     "@opentelemetry/api": "1.9.0",
     "@opentelemetry/context-async-hooks": "2.6.1",

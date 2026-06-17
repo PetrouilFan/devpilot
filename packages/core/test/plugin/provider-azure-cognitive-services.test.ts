@@ -1,9 +1,9 @@
 import { describe, expect } from "bun:test"
 import { Effect } from "effect"
-import { Catalog } from "@opencode-ai/core/catalog"
-import { PluginV2 } from "@opencode-ai/core/plugin"
-import { AzureCognitiveServicesPlugin } from "@opencode-ai/core/plugin/provider/azure"
-import { ProviderV2 } from "@opencode-ai/core/provider"
+import { Catalog } from "@devpilot-ai/core/catalog"
+import { PluginV2 } from "@devpilot-ai/core/plugin"
+import { AzureCognitiveServicesPlugin } from "@devpilot-ai/core/plugin/provider/azure"
+import { ProviderV2 } from "@devpilot-ai/core/provider"
 import { fakeSelectorSdk, it, model, provider, withEnv } from "./provider-helper"
 
 describe("AzureCognitiveServicesPlugin", () => {

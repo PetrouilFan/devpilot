@@ -1,11 +1,11 @@
 import { describe, expect } from "bun:test"
 import { Effect, Layer } from "effect"
 import type { Agent } from "../../src/agent/agent"
-import { NamedError } from "@opencode-ai/core/util/error"
+import { NamedError } from "@devpilot-ai/core/util/error"
 import { Skill } from "../../src/skill"
 import { Permission } from "../../src/permission"
 import { SystemPrompt } from "../../src/session/system"
-import { LocationServiceMap } from "@opencode-ai/core/location-layer"
+import { LocationServiceMap } from "@devpilot-ai/core/location-layer"
 import { testEffect } from "../lib/effect"
 
 const skills: Skill.Info[] = [

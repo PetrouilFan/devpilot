@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 import { describe, expect } from "bun:test"
-import { Flag } from "@opencode-ai/core/flag/flag"
+import { Flag } from "@devpilot-ai/core/flag/flag"
 import { ConfigProvider, Effect, Layer } from "effect"
 import {
   HttpClient,
@@ -11,7 +11,7 @@ import {
   HttpServerRequest,
   HttpServerResponse,
 } from "effect/unstable/http"
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { FSUtil } from "@devpilot-ai/core/fs-util"
 import { RuntimeFlags } from "../../src/effect/runtime-flags"
 import { ServerAuth } from "../../src/server/auth"
 import { authorizationRouterMiddleware } from "../../src/server/routes/instance/httpapi/middleware/authorization"
@@ -22,18 +22,18 @@ import { testEffect } from "../lib/effect"
 const testStateLayer = Layer.effectDiscard(
   Effect.gen(function* () {
     const original = {
-      OPENCODE_SERVER_PASSWORD: Flag.OPENCODE_SERVER_PASSWORD,
-      OPENCODE_SERVER_USERNAME: Flag.OPENCODE_SERVER_USERNAME,
-      envPassword: process.env.OPENCODE_SERVER_PASSWORD,
-      envUsername: process.env.OPENCODE_SERVER_USERNAME,
+      DEVPILOT_SERVER_PASSWORD: Flag.DEVPILOT_SERVER_PASSWORD,
+      DEVPILOT_SERVER_USERNAME: Flag.DEVPILOT_SERVER_USERNAME,
+      envPassword: process.env.DEVPILOT_SERVER_PASSWORD,
+      envUsername: process.env.DEVPILOT_SERVER_USERNAME,
     }
 
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => {
-        Flag.OPENCODE_SERVER_PASSWORD = original.OPENCODE_SERVER_PASSWORD
-        Flag.OPENCODE_SERVER_USERNAME = original.OPENCODE_SERVER_USERNAME
-        restoreEnv("OPENCODE_SERVER_PASSWORD", original.envPassword)
-        restoreEnv("OPENCODE_SERVER_USERNAME", original.envUsername)
+        Flag.DEVPILOT_SERVER_PASSWORD = original.DEVPILOT_SERVER_PASSWORD
+        Flag.DEVPILOT_SERVER_USERNAME = original.DEVPILOT_SERVER_USERNAME
+        restoreEnv("DEVPILOT_SERVER_PASSWORD", original.envPassword)
+        restoreEnv("DEVPILOT_SERVER_USERNAME", original.envUsername)
       }),
     )
   }),
@@ -55,8 +55,8 @@ function app(input?: { password?: string; username?: string }) {
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
-            OPENCODE_SERVER_PASSWORD: input?.password,
-            OPENCODE_SERVER_USERNAME: input?.username,
+            DEVPILOT_SERVER_PASSWORD: input?.password,
+            DEVPILOT_SERVER_USERNAME: input?.username,
           }),
         ),
       ),
@@ -102,8 +102,8 @@ function uiApp(input?: {
         HttpServer.layerServices,
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
-            OPENCODE_SERVER_PASSWORD: input?.password,
-            OPENCODE_SERVER_USERNAME: input?.username,
+            DEVPILOT_SERVER_PASSWORD: input?.password,
+            DEVPILOT_SERVER_USERNAME: input?.username,
           }),
         ),
       ]),

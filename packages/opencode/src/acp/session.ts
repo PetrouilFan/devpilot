@@ -1,7 +1,7 @@
 import type { McpServer } from "@agentclientprotocol/sdk"
-import type { Message, Part } from "@opencode-ai/sdk/v2"
-import { ProviderV2 } from "@opencode-ai/core/provider"
-import { ModelV2 } from "@opencode-ai/core/model"
+import type { Message, Part } from "@devpilot-ai/sdk/v2"
+import { ProviderV2 } from "@devpilot-ai/core/provider"
+import { ModelV2 } from "@devpilot-ai/core/model"
 import { Context, Effect, Layer, Ref } from "effect"
 import * as ACPError from "./error"
 
@@ -89,7 +89,7 @@ export type Interface = {
   readonly tryGetPartMetadata: (input: PartMetadataLookupInput) => Effect.Effect<KnownMessagePartMetadata | undefined>
 }
 
-export class Service extends Context.Service<Service, Interface>()("@opencode/ACP/Session") {}
+export class Service extends Context.Service<Service, Interface>()("@devpilot/ACP/Session") {}
 
 type State = Map<string, Info>
 

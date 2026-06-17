@@ -1,5 +1,5 @@
-import { Location } from "@opencode-ai/core/location"
-import { Reference } from "@opencode-ai/core/reference"
+import { Location } from "@devpilot-ai/core/location"
+import { Reference } from "@devpilot-ai/core/reference"
 import { Schema } from "effect"
 import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { LocationMiddleware, LocationQuery, locationQueryOpenApi } from "./location"

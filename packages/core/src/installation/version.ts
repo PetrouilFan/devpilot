@@ -1,8 +1,8 @@
 declare global {
-  const OPENCODE_VERSION: string
-  const OPENCODE_CHANNEL: string
+  const DEVPILOT_VERSION: string
+  const DEVPILOT_CHANNEL: string
 }
 
-export const InstallationVersion = typeof OPENCODE_VERSION === "string" ? OPENCODE_VERSION : "local"
-export const InstallationChannel = typeof OPENCODE_CHANNEL === "string" ? OPENCODE_CHANNEL : "local"
+export const InstallationVersion = typeof DEVPILOT_VERSION === "string" ? DEVPILOT_VERSION : "local"
+export const InstallationChannel = typeof DEVPILOT_CHANNEL === "string" ? DEVPILOT_CHANNEL : "local"
 export const InstallationLocal = InstallationChannel === "local"

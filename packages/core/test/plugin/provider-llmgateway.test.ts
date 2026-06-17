@@ -1,11 +1,11 @@
 import { describe, expect } from "bun:test"
 import { Effect } from "effect"
-import { Catalog } from "@opencode-ai/core/catalog"
-import { Integration } from "@opencode-ai/core/integration"
-import { PluginV2 } from "@opencode-ai/core/plugin"
-import { ProviderPlugins } from "@opencode-ai/core/plugin/provider"
-import { LLMGatewayPlugin } from "@opencode-ai/core/plugin/provider/llmgateway"
-import { ProviderV2 } from "@opencode-ai/core/provider"
+import { Catalog } from "@devpilot-ai/core/catalog"
+import { Integration } from "@devpilot-ai/core/integration"
+import { PluginV2 } from "@devpilot-ai/core/plugin"
+import { ProviderPlugins } from "@devpilot-ai/core/plugin/provider"
+import { LLMGatewayPlugin } from "@devpilot-ai/core/plugin/provider/llmgateway"
+import { ProviderV2 } from "@devpilot-ai/core/provider"
 import { expectPluginRegistered, it, provider } from "./provider-helper"
 
 describe("LLMGatewayPlugin", () => {

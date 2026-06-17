@@ -1,5 +1,5 @@
-import type { Hooks, PluginInput } from "@opencode-ai/plugin"
-import { InstallationVersion } from "@opencode-ai/core/installation/version"
+import type { Hooks, PluginInput } from "@devpilot-ai/plugin"
+import { InstallationVersion } from "@devpilot-ai/core/installation/version"
 import { OAUTH_DUMMY_KEY } from "../../auth"
 import os from "os"
 import { setTimeout as sleep } from "node:timers/promises"

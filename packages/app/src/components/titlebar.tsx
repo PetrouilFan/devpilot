@@ -13,13 +13,13 @@ import {
 } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLocation, useMatch, useNavigate, useParams } from "@solidjs/router"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Icon } from "@opencode-ai/ui/icon"
-import { Button } from "@opencode-ai/ui/button"
-import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
-import { useTheme } from "@opencode-ai/ui/theme/context"
-import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
-import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
+import { IconButton } from "@devpilot-ai/ui/icon-button"
+import { Icon } from "@devpilot-ai/ui/icon"
+import { Button } from "@devpilot-ai/ui/button"
+import { Tooltip, TooltipKeybind } from "@devpilot-ai/ui/tooltip"
+import { useTheme } from "@devpilot-ai/ui/theme/context"
+import { IconButtonV2 } from "@devpilot-ai/ui/v2/icon-button-v2"
+import { Icon as IconV2 } from "@devpilot-ai/ui/v2/icon"
 
 import { getProjectAvatarVariant, LayoutRoute, useLayout, type LocalProject } from "@/context/layout"
 import { usePlatform } from "@/context/platform"
@@ -29,8 +29,8 @@ import { useSettings } from "@/context/settings"
 import { WindowsAppMenu } from "./windows-app-menu"
 import { applyPath, backPath, forwardPath } from "./titlebar-history"
 import { useServerSync } from "@/context/server-sync"
-import { base64Encode } from "@opencode-ai/core/util/encode"
-import { ProjectAvatar } from "@opencode-ai/ui/v2/project-avatar-v2"
+import { base64Encode } from "@devpilot-ai/core/util/encode"
+import { ProjectAvatar } from "@devpilot-ai/ui/v2/project-avatar-v2"
 import { displayName, getProjectAvatarSource, projectForSession } from "@/pages/layout/helpers"
 import { useSessionTabAvatarState } from "@/pages/layout/project-avatar-state"
 import { makeEventListener } from "@solid-primitives/event-listener"
@@ -988,9 +988,9 @@ function NewSessionTabItem(props: { ref?: HTMLDivElement; href: string; title: s
 function ChannelIndicator() {
   return (
     <>
-      {["beta", "dev"].includes(import.meta.env.VITE_OPENCODE_CHANNEL) && (
+      {["beta", "dev"].includes(import.meta.env.VITE_DEVPILOT_CHANNEL) && (
         <div class="bg-icon-interactive-base text-[#FFF] font-medium px-2 rounded-sm uppercase font-mono">
-          {import.meta.env.VITE_OPENCODE_CHANNEL.toUpperCase()}
+          {import.meta.env.VITE_DEVPILOT_CHANNEL.toUpperCase()}
         </div>
       )}
     </>

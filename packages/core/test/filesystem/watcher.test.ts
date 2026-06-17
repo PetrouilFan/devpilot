@@ -3,13 +3,13 @@ import { describe, expect } from "bun:test"
 import fs from "fs/promises"
 import path from "path"
 import { ConfigProvider, Deferred, Duration, Effect, Fiber, Layer, Option, Stream } from "effect"
-import { Config } from "@opencode-ai/core/config"
-import { EventV2 } from "@opencode-ai/core/event"
-import { FSUtil } from "@opencode-ai/core/fs-util"
-import { Watcher } from "@opencode-ai/core/filesystem/watcher"
-import { Git } from "@opencode-ai/core/git"
-import { Location } from "@opencode-ai/core/location"
-import { AbsolutePath } from "@opencode-ai/core/schema"
+import { Config } from "@devpilot-ai/core/config"
+import { EventV2 } from "@devpilot-ai/core/event"
+import { FSUtil } from "@devpilot-ai/core/fs-util"
+import { Watcher } from "@devpilot-ai/core/filesystem/watcher"
+import { Git } from "@devpilot-ai/core/git"
+import { Location } from "@devpilot-ai/core/location"
+import { AbsolutePath } from "@devpilot-ai/core/schema"
 import { location } from "../fixture/location"
 import { tmpdir } from "../fixture/tmpdir"
 import { testEffect } from "../lib/effect"
@@ -29,8 +29,8 @@ const configLayer = Layer.succeed(
 
 const flagsLayer = ConfigProvider.layer(
   ConfigProvider.fromUnknown({
-    OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
-    OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER: "false",
+    DEVPILOT_EXPERIMENTAL_FILEWATCHER: "true",
+    DEVPILOT_EXPERIMENTAL_DISABLE_FILEWATCHER: "false",
   }),
 )
 
