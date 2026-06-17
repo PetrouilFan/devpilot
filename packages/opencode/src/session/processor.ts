@@ -32,7 +32,6 @@ import * as DateTime from "effect/DateTime"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ToolOutput, Usage, type LLMEvent } from "@devpilot-ai/llm"
 
-const DOOM_LOOP_THRESHOLD = 3
 export type Result = "compact" | "stop" | "continue"
 
 export interface Handle {
@@ -519,10 +518,12 @@ export const layer = Layer.effect(
             const parts = yield* MessageV2.parts(ctx.assistantMessage.id).pipe(
               Effect.provideService(Database.Service, database),
             )
-            const recentParts = parts.slice(-DOOM_LOOP_THRESHOLD)
+            const agent = yield* agents.get(ctx.assistantMessage.agent)
+            const doomThreshold = agent.doom_loop_threshold ?? 5
+            const recentParts = parts.slice(-doomThreshold)
 
             if (
-              recentParts.length !== DOOM_LOOP_THRESHOLD ||
+              recentParts.length !== doomThreshold ||
               !recentParts.every(
                 (part) =>
                   part.type === "tool" &&
@@ -534,7 +535,6 @@ export const layer = Layer.effect(
               return
             }
 
-            const agent = yield* agents.get(ctx.assistantMessage.agent)
             yield* permission.ask({
               permission: "doom_loop",
               patterns: [value.name],
@@ -963,7 +963,7 @@ export const layer = Layer.effect(
           messageID: input.assistantMessage.id,
         })
         ctx.needsCompaction = false
-        ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
+        ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny === false
 
         return yield* Effect.gen(function* () {
           yield* Effect.gen(function* () {

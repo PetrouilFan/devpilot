@@ -35,6 +35,10 @@ const AgentSchema = Schema.StructWithRest(
       description: "Maximum number of agentic iterations before forcing text-only response",
     }),
     maxSteps: Schema.optional(PositiveInt).annotate({ description: "@deprecated Use 'steps' field instead." }),
+    doom_loop_threshold: Schema.optional(PositiveInt).annotate({
+      description:
+        "Number of consecutive identical tool calls (same tool + same input) before triggering doom loop detection. Default: 5.",
+    }),
     permission: Schema.optional(ConfigPermissionV1.Info),
   }),
   [Schema.Record(Schema.String, Schema.Any)],
@@ -53,6 +57,7 @@ const KNOWN_KEYS = new Set([
   "color",
   "steps",
   "maxSteps",
+  "doom_loop_threshold",
   "options",
   "permission",
   "disable",
@@ -77,7 +82,13 @@ const normalize = (agent: Schema.Schema.Type<typeof AgentSchema>): Schema.Schema
   globalThis.Object.assign(permission, agent.permission)
 
   const steps = agent.steps ?? agent.maxSteps
-  return { ...agent, options, permission, ...(steps !== undefined ? { steps } : {}) }
+  return {
+    ...agent,
+    options,
+    permission,
+    ...(steps !== undefined ? { steps } : {}),
+    ...(agent.doom_loop_threshold !== undefined ? { doom_loop_threshold: agent.doom_loop_threshold } : {}),
+  }
 }
 
 export const Info = AgentSchema.pipe(

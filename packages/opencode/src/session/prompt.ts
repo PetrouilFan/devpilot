@@ -1331,6 +1331,11 @@ export const layer = Layer.effect(
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
             const system = [...env, ...instructions, ...(skills ? [skills] : [])]
+            if (step > 5) {
+              system.push(
+                "You have been working on this task for several steps. If you believe the user's goal has been achieved, respond with a text summary and stop using tools. If the goal is not yet achieved, continue working with tools. Do not stop prematurely — only stop when you are confident the task is complete or you cannot make further progress.",
+              )
+            }
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({

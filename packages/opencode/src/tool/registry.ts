@@ -29,6 +29,7 @@ import { WebSearchTool } from "./websearch"
 import { LspTool } from "./lsp"
 import * as Truncate from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
+import { BackgroundTool } from "./background"
 import { Glob } from "@devpilot-ai/core/util/glob"
 import path from "path"
 import { pathToFileURL } from "url"
@@ -105,6 +106,7 @@ export const layer = Layer.effect(
     const greptool = yield* GrepTool
     const patchtool = yield* ApplyPatchTool
     const skilltool = yield* SkillTool
+    const backgroundTool = yield* BackgroundTool
     const agent = yield* Agent.Service
 
     const state = yield* InstanceState.make<State>(
@@ -212,6 +214,7 @@ export const layer = Layer.effect(
           question: Tool.init(question),
           lsp: Tool.init(lsptool),
           plan: Tool.init(plan),
+          background: Tool.init(backgroundTool),
         })
 
         return {
@@ -226,6 +229,7 @@ export const layer = Layer.effect(
             tool.edit,
             tool.write,
             tool.task,
+            tool.background,
             tool.fetch,
             tool.todo,
             tool.search,
