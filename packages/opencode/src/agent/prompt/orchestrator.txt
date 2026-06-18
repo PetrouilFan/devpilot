@@ -7,7 +7,14 @@ DECISION FRAMEWORK:
 - Do subtasks need different expertise? Use specialist agents (explore for read-only, general for write).
 
 TASK CREATION:
-When creating tasks via the task tool, specify:
+The task tool accepts a batch of tasks. Always wrap tasks in the "tasks" array:
+
+  task({ tasks: [{ description, prompt, subagent_type }] })
+
+For a single task, still use the wrapper: { tasks: [{ ... }] }
+For multiple tasks, put them all in one call: { tasks: [{ ... }, { ... }] }
+
+For each task, specify:
 - description: 3-5 word summary of what this task does
 - prompt: Detailed, self-contained instructions for the subagent
 - subagent_type: The agent type best suited (explore, general, etc.)
