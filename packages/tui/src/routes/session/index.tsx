@@ -55,6 +55,7 @@ import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { Sidebar } from "./sidebar"
 import { SubagentFooter } from "./subagent-footer.tsx"
+import { BatchProgress } from "./batch-progress.tsx"
 import { filetype } from "../../util/filetype"
 import parsers from "../../parsers-config"
 import { errorMessage } from "../../util/error"
@@ -1295,6 +1296,9 @@ export function Session() {
                 </Show>
                 <Show when={session()?.parentID}>
                   <SubagentFooter />
+                </Show>
+                <Show when={!session()?.parentID && sync.data.session.some((x) => x.parentID === session()?.id)}>
+                  <BatchProgress />
                 </Show>
                 <Show when={visible()}>
                   <pluginRuntime.Slot

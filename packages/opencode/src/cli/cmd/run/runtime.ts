@@ -134,7 +134,6 @@ type RuntimeState = {
   selectSubagent?: (sessionID: string | undefined) => void
   session?: Promise<void>
   stream?: Promise<StreamState>
-  grillMode: boolean
 }
 
 function hasSession(input: RunRuntimeInput, state: RuntimeState) {
@@ -208,7 +207,6 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
     localRows: [],
     sessionTitle: ctx.sessionTitle,
     agent: ctx.agent,
-    grillMode: false,
   }
   const ensureSession = () => {
     if (!input.resolveSession || state.sessionID) {
@@ -639,31 +637,6 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
             }
           }
         : undefined,
-      onGrillme: async () => {
-        state.grillMode = !state.grillMode
-        const sessionID = state.sessionID
-        if (sessionID) {
-          try {
-            await ctx.sdk.session.update({ sessionID, metadata: { grillMode: state.grillMode } })
-          } catch {}
-        }
-        shell.footer.event({
-          type: "stream.patch",
-          patch: { status: state.grillMode ? "Grill Mode ON" : "Grill Mode OFF" },
-        })
-      },
-      onGoal: async (goal) => {
-        const sessionID = state.sessionID
-        if (sessionID) {
-          try {
-            await ctx.sdk.session.update({ sessionID, metadata: { goal: goal ?? undefined } })
-          } catch {}
-        }
-        shell.footer.event({
-          type: "stream.patch",
-          patch: { status: goal ? `Goal: ${goal}` : "Goal cleared" },
-        })
-      },
       run: async (prompt, signal) => {
         if (state.demo && (await state.demo.prompt(prompt, signal))) {
           return

@@ -22,6 +22,7 @@ import { ConfigProvider } from "./config/provider"
 import { ConfigReference } from "./config/reference"
 import { ConfigToolOutput } from "./config/tool-output"
 import { ConfigWatcher } from "./config/watcher"
+import { ConfigSubagents } from "./config/subagents"
 import { ConfigV1 } from "./v1/config/config"
 import { ConfigMigrateV1 } from "./v1/config/migrate"
 
@@ -102,6 +103,9 @@ export class Info extends Schema.Class<Info>("Config.Info")({
     description: "Ordered external plugin packages to load",
   }),
   experimental: ConfigExperimental.Experimental.pipe(Schema.optional),
+  subagents: ConfigSubagents.Info.pipe(Schema.optional).annotate({
+    description: "Subagent configuration: model defaults, concurrency limits, isolation mode, and orchestrator settings",
+  }),
   providers: Schema.Record(Schema.String, ConfigProvider.Info).pipe(Schema.optional),
 }) {}
 

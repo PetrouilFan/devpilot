@@ -13,6 +13,7 @@ import { Plugin } from "@/plugin"
 import type { TaskPromptOps } from "@/tool/task"
 import { type Tool as AITool, tool, jsonSchema, type ToolExecutionOptions, asSchema } from "ai"
 import { Effect } from "effect"
+import path from "path"
 import { MessageV2 } from "./message-v2"
 import { Session } from "./session"
 import { SessionProcessor } from "./processor"
@@ -84,6 +85,20 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
         return run.promise(
           Effect.gen(function* () {
             const ctx = context(args, options)
+            const isolation = input.session.metadata?.isolation as
+              | { workDir: string; mode: string }
+              | undefined
+            if (
+              isolation &&
+              (item.id === "edit" || item.id === "write" || item.id === "read" || item.id === "shell")
+            ) {
+              const filePath = (args.filePath ?? args.path ?? args.workdir) as string | undefined
+              if (filePath && !filePath.startsWith(isolation.workDir)) {
+                return yield* Effect.fail(
+                  new Error(`Access denied: ${filePath} is outside isolation directory ${isolation.workDir}`),
+                )
+              }
+            }
             yield* plugin.trigger(
               "tool.execute.before",
               { tool: item.id, sessionID: ctx.sessionID, callID: ctx.callID },

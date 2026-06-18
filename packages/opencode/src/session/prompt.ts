@@ -94,6 +94,44 @@ export interface Interface {
 
 export class Service extends Context.Service<Service, Interface>()("@devpilot/SessionPrompt") {}
 
+function analyzeComplexity(text: string): boolean {
+  if (text.length < 200) return false
+  const parallelSignals = [
+    /\band\b/i,
+    /\balso\b/i,
+    /\bthen\b/i,
+    /\badditionally\b/i,
+    /\bfurthermore\b/i,
+    /\bmeanwhile\b/i,
+    /\bat the same time\b/i,
+    /\bin parallel\b/i,
+  ]
+  const signalCount = parallelSignals.filter((re) => re.test(text)).length
+  if (signalCount >= 2) return true
+  const actionVerbs = [
+    /\bfind\b/i,
+    /\bsearch\b/i,
+    /\bcheck\b/i,
+    /\bverify\b/i,
+    /\bupdate\b/i,
+    /\bcreate\b/i,
+    /\bfix\b/i,
+    /\brefactor\b/i,
+    /\badd\b/i,
+    /\bremove\b/i,
+    /\bimplement\b/i,
+    /\bwrite\b/i,
+    /\bbuild\b/i,
+    /\btest\b/i,
+    /\breview\b/i,
+  ]
+  const actionCount = actionVerbs.filter((re) => re.test(text)).length
+  if (actionCount >= 4) return true
+  const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 10)
+  if (sentences.length >= 5) return true
+  return false
+}
+
 export const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -274,19 +312,26 @@ export const layer = Layer.effect(
         state: {
           status: "running",
           input: {
-            prompt: task.prompt,
-            description: task.description,
-            subagent_type: task.agent,
+            tasks: [
+              {
+                prompt: task.prompt,
+                description: task.description,
+                subagent_type: task.agent,
+              },
+            ],
             command: task.command,
           },
           time: { start: Date.now() },
         },
       })
       const taskArgs = {
-        prompt: task.prompt,
-        description: task.description,
-        subagent_type: task.agent,
-        command: task.command,
+        tasks: [
+          {
+            prompt: task.prompt,
+            description: task.description,
+            subagent_type: task.agent,
+          },
+        ],
       }
       yield* plugin.trigger(
         "tool.execute.before",
@@ -1348,6 +1393,34 @@ export const layer = Layer.effect(
 
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
+
+            // Orchestrator trigger: analyze complexity and inject delegation hint if configured
+            const cfg = yield* config.get()
+            const subagentCfg = cfg.subagents
+            if (subagentCfg?.orchestrator_trigger === "auto" && agent.mode !== "subagent") {
+              const orchestratorAgent = subagentCfg.orchestrator
+              if (orchestratorAgent) {
+                const lastUserMsg = msgs.findLast((m) => m.info.role === "user")
+                const lastUserText = lastUserMsg
+                  ? lastUserMsg.parts
+                      .filter((p): p is SessionV1.TextPart => p.type === "text")
+                      .map((p) => p.text)
+                      .join("\n")
+                  : ""
+                if (analyzeComplexity(lastUserText)) {
+                  system.push(
+                    [
+                      "COMPLEX TASK DETECTED:",
+                      "This request may benefit from parallel decomposition.",
+                      `Consider delegating to the "${orchestratorAgent}" agent to break this into parallel subtasks.`,
+                      "The orchestrator can launch multiple specialized subagents concurrently.",
+                      "Only use this if the task has 3+ independent subtasks that benefit from parallel execution.",
+                    ].join("\n"),
+                  )
+                }
+              }
+            }
+
             const result = yield* handle.process({
               user: lastUser,
               agent,

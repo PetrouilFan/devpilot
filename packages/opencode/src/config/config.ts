@@ -26,6 +26,7 @@ import { ConfigV1 } from "@devpilot-ai/core/v1/config/config"
 import { RemoteAuthError } from "@devpilot-ai/core/v1/config/error"
 import { ConfigPermissionV1 } from "@devpilot-ai/core/v1/config/permission"
 import { ConfigPluginV1 } from "@devpilot-ai/core/v1/config/plugin"
+import { ConfigSubagents } from "@devpilot-ai/core/config/subagents"
 import { ConfigAgent } from "./agent"
 import { ConfigCommand } from "./command"
 import { ConfigManaged } from "./managed"
@@ -112,6 +113,7 @@ type Info = ConfigV1.Info & {
   // plugin_origins is derived state, not a persisted config field. It keeps each winning plugin spec together
   // with the file and scope it came from so later runtime code can make location-sensitive decisions.
   plugin_origins?: ConfigPlugin.Origin[]
+  subagents?: ConfigSubagents.Info
 }
 
 type State = {

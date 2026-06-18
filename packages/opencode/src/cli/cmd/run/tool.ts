@@ -364,8 +364,9 @@ function runWebSearch(p: ToolProps<typeof WebSearchTool>): ToolInline {
 }
 
 function runTask(p: ToolProps<typeof TaskTool>): ToolInline {
-  const kind = Locale.titlecase(p.input.subagent_type || "unknown")
-  const desc = p.input.description
+  const task = p.input.tasks?.[0]
+  const kind = Locale.titlecase(task?.subagent_type || "unknown")
+  const desc = task?.description
   const icon = p.frame.status === "error" ? "✗" : p.frame.status === "running" ? "•" : "✓"
   return {
     icon,
@@ -569,8 +570,9 @@ function snapPatch(p: ToolProps<typeof ApplyPatchTool>): ToolSnapshot | undefine
 }
 
 function snapTask(p: ToolProps<typeof TaskTool>): ToolSnapshot {
-  const kind = Locale.titlecase(p.input.subagent_type || "general")
-  const desc = p.input.description
+  const task = p.input.tasks?.[0]
+  const kind = Locale.titlecase(task?.subagent_type || "general")
+  const desc = task?.description
   const title = text(p.frame.state.title)
   const rows = [desc || title].filter((item): item is string => Boolean(item))
 
@@ -781,8 +783,9 @@ function scrollTaskFinal(p: ToolProps<typeof TaskTool>): string {
     return fail(p.frame)
   }
 
-  const kind = Locale.titlecase(p.input.subagent_type || "general")
-  const row = p.input.description || text(p.frame.state.title)
+  const task = p.input.tasks?.[0]
+  const kind = Locale.titlecase(task?.subagent_type || "general")
+  const row = task?.description || text(p.frame.state.title)
   if (!row) {
     return `# ${kind} Task`
   }
@@ -978,8 +981,9 @@ function permBash(p: ToolPermissionProps<typeof BashTool>): ToolPermissionInfo {
 }
 
 function permTask(p: ToolPermissionProps<typeof TaskTool>): ToolPermissionInfo {
-  const type = p.input.subagent_type || "general"
-  const desc = p.input.description
+  const task = p.input.tasks?.[0]
+  const type = task?.subagent_type || "general"
+  const desc = task?.description
   return {
     icon: "#",
     title: `${Locale.titlecase(type)} Task`,

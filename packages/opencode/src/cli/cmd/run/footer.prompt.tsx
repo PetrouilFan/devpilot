@@ -18,7 +18,6 @@ import {
   displayCharAt,
   displaySlice,
   isExitCommand,
-  isGrillmeCommand,
   mentionTriggerIndex,
   isNewCommand,
   movePromptHistory,
@@ -418,8 +417,7 @@ export function createPromptState(input: PromptInput): PromptState {
         description: "compose in your external editor",
       } satisfies SlashOption,
       { kind: "slash", name: "new", display: "/new", description: "start a new session" } satisfies SlashOption,
-      { kind: "slash", name: "goal", display: "/goal", description: "set a long-term goal for the agent" } satisfies SlashOption,
-      { kind: "slash", name: "grillme", display: "/grillme", description: "Toggle continuous questioning mode" } satisfies SlashOption,
+
       { kind: "slash", name: "exit", display: "/exit", description: "close OpenCode" } satisfies SlashOption,
     ]
     const hidden = new Set(builtins.map((item) => item.name))

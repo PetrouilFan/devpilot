@@ -93,7 +93,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://raw.githubusercontent.com/Petrou
 
 ### Agents
 
-DevPilot includes two built-in agents you can switch between with the `Tab` key.
+DevPilot includes several built-in agents you can switch between with the `Tab` key.
 
 - **build** - Default, full-access agent for development work
 - **plan** - Read-only agent for analysis and code exploration
@@ -101,10 +101,37 @@ DevPilot includes two built-in agents you can switch between with the `Tab` key.
   - Asks permission before running bash commands
   - Ideal for exploring unfamiliar codebases or planning changes
 
-Also included is a **general** subagent for complex searches and multistep tasks.
-This is used internally and can be invoked using `@general` in messages.
+Also included are subagents used internally and via the task tool:
 
-Learn more about [agents](https://github.com/PetrouilFan/devpilot/blob/dev/docs/agents.md).
+- **general** - General-purpose agent for complex searches and multi-step tasks
+- **explore** - Read-only codebase search specialist
+- **orchestrator** - Decomposes complex tasks into parallel subtasks and synthesizes results
+
+Learn more about [agents](./docs/agents.md).
+
+### Subagent System
+
+DevPilot supports parallel subagent execution via the batch task tool. Tasks can declare dependencies (`depends_on`) for DAG-based scheduling, specify output contracts, and configure failure handling (`fail-fast`, `continue`, `retry`). Filesystem isolation (`worktree` or `scope` mode) prevents subagents from accessing files outside their working directory.
+
+See [docs/agents.md](./docs/agents.md) for the full subagent and orchestrator reference.
+
+### Configuration
+
+Subagent behavior is configured in `devpilot.json` under the `subagents` key:
+
+```jsonc
+{
+  "subagents": {
+    "model": "anthropic/claude-haiku-3.5",
+    "max_concurrency": 5,
+    "isolation": "worktree",
+    "orchestrator": "orchestrator",
+    "orchestrator_trigger": "auto"
+  }
+}
+```
+
+See the [configuration docs](./docs/agents.md#configuration-reference) for all available fields.
 
 ### Documentation
 

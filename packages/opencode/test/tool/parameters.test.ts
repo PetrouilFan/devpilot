@@ -238,16 +238,15 @@ describe("tool parameters", () => {
   })
 
   describe("task", () => {
-    test("accepts description + prompt + subagent_type", () => {
-      const parsed = parse(Task, { description: "d", prompt: "p", subagent_type: "general" })
-      expect(parsed.subagent_type).toBe("general")
-    })
-    test("accepts optional background flag", () => {
-      const parsed = parse(Task, { description: "d", prompt: "p", subagent_type: "general", background: true })
-      expect(parsed.background).toBe(true)
+    test("accepts tasks array with description + prompt + subagent_type", () => {
+      const parsed = parse(Task, { tasks: [{ description: "d", prompt: "p", subagent_type: "general" }] })
+      expect(parsed.tasks[0].subagent_type).toBe("general")
     })
     test("rejects missing prompt", () => {
-      expect(accepts(Task, { description: "d", subagent_type: "general" })).toBe(false)
+      expect(accepts(Task, { tasks: [{ description: "d", subagent_type: "general" }] })).toBe(false)
+    })
+    test("rejects missing tasks array", () => {
+      expect(accepts(Task, {})).toBe(false)
     })
   })
 

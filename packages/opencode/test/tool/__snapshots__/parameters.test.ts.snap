@@ -319,35 +319,114 @@ exports[`tool parameters JSON Schema (wire shape) task 1`] = `
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
-    "background": {
-      "description": "Run the agent in the background. You will be notified when it completes. DO NOT sleep, poll, or proactively check on its progress",
-      "type": "boolean",
-    },
-    "command": {
-      "description": "The command that triggered this task",
-      "type": "string",
-    },
-    "description": {
-      "description": "A short (3-5 words) description of the task",
-      "type": "string",
-    },
-    "prompt": {
-      "description": "The task for the agent to perform",
-      "type": "string",
-    },
-    "subagent_type": {
-      "description": "The type of specialized agent to use for this task",
-      "type": "string",
-    },
-    "task_id": {
-      "description": "This should only be set if you mean to resume a previous task (you can pass a prior task_id and the task will continue the same subagent session as before instead of creating a fresh one)",
-      "type": "string",
+    "tasks": {
+      "description": "Array of tasks to execute (at least 1 required). Independent tasks run in parallel. Each task becomes a separate subagent session.",
+      "items": {
+        "properties": {
+          "depends_on": {
+            "description": "Task IDs that must complete before this task starts",
+            "items": {
+              "type": "string",
+            },
+            "type": "array",
+          },
+          "description": {
+            "description": "A short (3-5 words) description of the task",
+            "type": "string",
+          },
+          "id": {
+            "description": "Unique identifier for this task (used in depends_on references)",
+            "type": "string",
+          },
+          "model": {
+            "description": "Override the model for this specific task",
+            "properties": {
+              "modelID": {
+                "description": "Model ID to use",
+                "type": "string",
+              },
+              "providerID": {
+                "description": "Provider ID for the model",
+                "type": "string",
+              },
+            },
+            "required": [
+              "providerID",
+              "modelID",
+            ],
+            "type": "object",
+          },
+          "on_failure": {
+            "description": "How to handle this task's failure: 'fail-fast' aborts all, 'continue' keeps others, 'retry' retries once",
+            "enum": [
+              "fail-fast",
+              "continue",
+              "retry",
+            ],
+            "type": "string",
+          },
+          "output": {
+            "description": "Output contract specifying what the subagent should return",
+            "properties": {
+              "format": {
+                "description": "Expected output format",
+                "enum": [
+                  "text",
+                  "structured",
+                  "list",
+                ],
+                "type": "string",
+              },
+              "max_length": {
+                "description": "Maximum output length in characters",
+                "type": "number",
+              },
+              "schema": {
+                "description": "JSON schema for structured output format",
+                "type": "object",
+              },
+              "sections": {
+                "description": "Required sections in the output (e.g. ['files', 'summary', 'issues'])",
+                "items": {
+                  "type": "string",
+                },
+                "type": "array",
+              },
+            },
+            "required": [
+              "format",
+            ],
+            "type": "object",
+          },
+          "prompt": {
+            "description": "The task for the agent to perform",
+            "type": "string",
+          },
+          "subagent_type": {
+            "description": "The type of specialized agent to use for this task",
+            "type": "string",
+          },
+          "task_id": {
+            "description": "Resume a previous task session by ID instead of creating a new one",
+            "type": "string",
+          },
+          "timeout_ms": {
+            "description": "Maximum time in milliseconds for this task",
+            "type": "number",
+          },
+        },
+        "required": [
+          "description",
+          "prompt",
+          "subagent_type",
+        ],
+        "type": "object",
+      },
+      "type": "array",
     },
   },
   "required": [
-    "description",
-    "prompt",
-    "subagent_type",
+    "tasks",
   ],
   "type": "object",
 }

@@ -936,9 +936,13 @@ it.instance(
         permission: [{ permission: "*", pattern: "*", action: "allow" }],
       })
       yield* llm.tool("task", {
-        description: "inspect bug",
-        prompt: "look into the cache key path",
-        subagent_type: "general",
+        tasks: [
+          {
+            description: "inspect bug",
+            prompt: "look into the cache key path",
+            subagent_type: "general",
+          },
+        ],
       })
       yield* llm.hang
       yield* user(chat.id, "hello")
