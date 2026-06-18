@@ -36,6 +36,7 @@ type CommandSlashEntry = {
   aliases?: string[]
   onSelect: () => void
 }
+
 type Command = ReturnType<OpenTuiKeymap["getCommands"]>[number]
 type BindingLookup = {
   get(command: string): readonly Binding<Renderable, KeyEvent>[]

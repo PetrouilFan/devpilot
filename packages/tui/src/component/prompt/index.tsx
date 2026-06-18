@@ -1103,6 +1103,10 @@ export function Prompt(props: PromptProps) {
         return
       }
       move.startSubmit()
+      sdk.client.session.update({
+        sessionID,
+        metadata: { grillMode: true },
+      })
       sdk.client.session
         .prompt(
           {
@@ -1116,7 +1120,7 @@ export function Prompt(props: PromptProps) {
               ...editorParts,
               {
                 type: "text",
-                text: message,
+                text: "[GRILL] " + message,
               },
               ...nonTextParts,
             ],

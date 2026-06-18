@@ -506,12 +506,11 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       onSelect: () => {
         const id = params.id
         if (!id) return
-        const current = (info()?.metadata?.grillMode as boolean | undefined) ?? false
         sdk().client.session.update({
           sessionID: id,
-          metadata: { grillMode: !current },
+          metadata: { grillMode: true },
         })
-        showToast({ title: !current ? "Grill Mode ON" : "Grill Mode OFF", variant: "success" })
+        showToast({ title: "Grill Mode Active — type your message", variant: "success" })
       },
     }),
   ]
