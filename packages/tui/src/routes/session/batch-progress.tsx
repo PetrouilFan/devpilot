@@ -89,25 +89,23 @@ export function BatchProgress() {
               <For each={p().kids}>
                 {(kid) => {
                   const status = createMemo(() => sync.data.session_status[kid.id])
+                  const title = (kid.title ?? "").replace(/ @\w+ subagent$/, "").slice(0, 12)
+                  const statusLabel = createMemo(() => {
+                    const s = status()
+                    if (!s) return "queued"
+                    if (s.type === "busy") return "..."
+                    if (s.type === "retry") return "retry"
+                    return "done"
+                  })
+                  const statusColor = createMemo(() => {
+                    const s = status()
+                    if (s?.type === "busy" || s?.type === "retry") return theme.warning
+                    if (s?.type === "idle") return theme.success
+                    return theme.textMuted
+                  })
                   return (
                     <text fg={theme.textMuted}>
-                      {kid.title.replace(/ @\w+ subagent$/, "").slice(0, 12)}:
-                      {" "}
-                      <text
-                        fg={
-                          status()?.type === "busy"
-                            ? theme.warning
-                            : status()?.type === "retry"
-                              ? theme.warning
-                              : theme.success
-                        }
-                      >
-                        {status()?.type === "busy"
-                          ? "..."
-                          : status()?.type === "retry"
-                            ? "retry"
-                            : "done"}
-                      </text>
+                      {title}: <text fg={statusColor()}>{statusLabel()}</text>
                     </text>
                   )
                 }}
