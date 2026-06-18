@@ -105,7 +105,7 @@ export function BatchProgress() {
                   })
                   return (
                     <text fg={theme.textMuted}>
-                      {title}: <text fg={statusColor()}>{statusLabel()}</text>
+                      {title}: <span style={{ fg: statusColor() }}>{statusLabel()}</span>
                     </text>
                   )
                 }}
