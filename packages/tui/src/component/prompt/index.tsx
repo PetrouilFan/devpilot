@@ -46,6 +46,7 @@ import { useDialog } from "../../ui/dialog"
 import { DialogProvider as DialogProviderConnect } from "../dialog-provider"
 import { DialogAlert } from "../../ui/dialog-alert"
 import { useToast } from "../../ui/toast"
+import { DialogPrompt } from "../../ui/dialog-prompt"
 import { useKV } from "../../context/kv"
 import { createFadeIn } from "../../util/signal"
 import { DialogSkill } from "../dialog-skill"
@@ -99,6 +100,8 @@ const money = new Intl.NumberFormat("en-US", {
 })
 
 const DRAFT_RETENTION_MIN_CHARS = 20
+const GRILL_MODE_PROMPT =
+  "GRILL MODE ACTIVE:\nYour ONLY job is to ask clarifying questions to understand the task as deeply as possible.\nDO NOT use any tools. DO NOT write code. DO NOT make assumptions.\nAsk ONE question at a time. Wait for the answer. Then ask the next.\nContinue until you have a complete understanding, then say \"UNDERSTOOD\" and summarize."
 
 function randomIndex(count: number) {
   if (count <= 0) return 0
@@ -547,6 +550,37 @@ export function Prompt(props: PromptProps) {
         run: () => {
           move.open()
         },
+      },
+      {
+        title: "Set long-term goal",
+        desc: "Set or clear a long-term goal for the agent",
+        name: "session.goal",
+        category: "Session",
+        slashName: "goal",
+        run: async () => {
+          if (!props.sessionID) return
+          const current = sync.session.get(props.sessionID)?.metadata?.goal as string | undefined
+          const goal = await DialogPrompt.show(dialog, "Set long-term goal", {
+            description: () => (
+              <text>{current ? `Current goal: ${current}` : "Enter a long-term goal for this session"}</text>
+            ),
+            value: current,
+          })
+          if (goal === null) return
+          await sdk.client.session.update({
+            sessionID: props.sessionID,
+            metadata: goal ? { goal } : {},
+          })
+          toast.show({ message: goal ? "Goal set" : "Goal cleared", variant: "success" })
+          dialog.clear()
+        },
+      },
+      {
+        title: "Grill Mode - Ask clarifying questions",
+        desc: "Ask clarifying questions before acting (use /grillme <message>)",
+        name: "session.grillme",
+        category: "Session",
+        run: () => {},
       },
     ].map((entry) => ({
       namespace: "palette",
@@ -1062,6 +1096,41 @@ export function Prompt(props: PromptProps) {
         command: inputText,
       })
       setStore("mode", "normal")
+    } else if (inputText.startsWith("/grillme ")) {
+      const message = inputText.slice("/grillme ".length)
+      if (!message.trim()) {
+        toast.show({ message: "Type a message after /grillme", variant: "error" })
+        return
+      }
+      move.startSubmit()
+      sdk.client.session
+        .prompt(
+          {
+            sessionID,
+            ...selectedModel,
+            agent: agent.name,
+            model: selectedModel,
+            variant,
+            system: GRILL_MODE_PROMPT,
+            parts: [
+              ...editorParts,
+              {
+                type: "text",
+                text: message,
+              },
+              ...nonTextParts,
+            ],
+          },
+          { throwOnError: true },
+        )
+        .catch((error) => {
+          toast.show({
+            title: "Failed to send prompt",
+            message: errorMessage(error),
+            variant: "error",
+          })
+        })
+      if (editorParts.length > 0) editor.markSelectionSent()
     } else if (
       inputText.startsWith("/") &&
       sync.data.command.some((x) => x.name === inputText.split("\n")[0].split(" ")[0].slice(1))
