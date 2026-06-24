@@ -11,7 +11,7 @@ const CORRECTION_PATTERNS = [
   /no[.,]*\s+(?:I\s+(?:meant|prefer|use|want|like|need|have))/i,
   /(?:don'?t|do not|stop|instead of|actually|rather)/i,
   /(?:use|using|uses?)\s+(?:\w+\s+){0,3}(?:instead|rather)/i,
-  /I\s+(?:prefer|like|want|need)\s+(?:to\s+)?(?:use\s+)?(\w+)/i,
+  /I\s+(?:prefer|like|want|need)\s+\w+\s+instead\s+of/i,
   /I'm\s+(?:using|on)\s+(\w+)/i,
 ]
 

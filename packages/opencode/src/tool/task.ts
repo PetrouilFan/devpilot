@@ -491,37 +491,52 @@ export const TaskTool = Tool.define(
 
         const layers = topologicalSort([...params.tasks])
         const completed = new Map<string, TaskResult>()
+        let layersAborted = false
 
         for (const layer of layers) {
-          const layerResults: TaskResult[] = []
-          let layerAborted = false
-
-          for (const task of layer) {
-            if (layerAborted) {
-              layerResults.push({
+          if (layersAborted) {
+            for (const task of layer) {
+              completed.set(taskKey(task), {
                 task,
                 state: "error",
                 text: "",
                 error: "Skipped: earlier task failed with fail-fast",
               })
-              continue
             }
+            continue
+          }
 
-            const result = yield* runSingleTask(task, layerResults.length, ctx, concurrency, completed)
-            layerResults.push(result)
+          const layerResults = yield* Effect.all(
+            layer.map((task, i) => runSingleTask(task, i, ctx, concurrency, completed)),
+            { concurrency: maxConcurrency },
+          )
+
+          let layerAborted = false
+          const retriedResults: TaskResult[] = []
+
+          for (let i = 0; i < layer.length; i++) {
+            const result = layerResults[i]
+            retriedResults.push(result)
 
             if (result.state !== "completed") {
-              const failureMode = task.on_failure ?? "continue"
+              const failureMode = result.task.on_failure ?? "continue"
               if (failureMode === "fail-fast") {
                 layerAborted = true
+                layersAborted = true
               } else if (failureMode === "retry") {
-                const retry = yield* runSingleTask(task, layerResults.length, ctx, concurrency, completed)
-                layerResults[layerResults.length - 1] = retry
+                const retry = yield* runSingleTask(
+                  result.task,
+                  i,
+                  ctx,
+                  concurrency,
+                  completed,
+                )
+                retriedResults[retriedResults.length - 1] = retry
               }
             }
           }
 
-          for (const result of layerResults) {
+          for (const result of retriedResults) {
             completed.set(taskKey(result.task), result)
           }
         }
@@ -530,14 +545,20 @@ export const TaskTool = Tool.define(
         return buildResult(params.tasks, allResults, subagentCfg)
       }
 
-      // No dependencies — execute all tasks with on_failure handling
-      const results: TaskResult[] = []
+      // No dependencies — execute all tasks concurrently with on_failure handling
+      const results = yield* Effect.all(
+        params.tasks.map((task, i) => runSingleTask(task, i, ctx, concurrency)),
+        { concurrency: maxConcurrency },
+      )
+
+      // Process retries and fail-fast after all tasks complete
+      const finalResults: TaskResult[] = []
       let aborted = false
 
-      for (const task of params.tasks) {
+      for (const result of results) {
         if (aborted) {
-          results.push({
-            task,
+          finalResults.push({
+            task: result.task,
             state: "error",
             text: "",
             error: "Skipped: earlier task failed with fail-fast",
@@ -545,21 +566,25 @@ export const TaskTool = Tool.define(
           continue
         }
 
-        const result = yield* runSingleTask(task, results.length, ctx, concurrency)
-        results.push(result)
+        finalResults.push(result)
 
         if (result.state !== "completed") {
-          const failureMode = task.on_failure ?? "continue"
+          const failureMode = result.task.on_failure ?? "continue"
           if (failureMode === "fail-fast") {
             aborted = true
           } else if (failureMode === "retry") {
-            const retry = yield* runSingleTask(task, results.length, ctx, concurrency)
-            results[results.length - 1] = retry
+            const retry = yield* runSingleTask(
+              result.task,
+              finalResults.length - 1,
+              ctx,
+              concurrency,
+            )
+            finalResults[finalResults.length - 1] = retry
           }
         }
       }
 
-      return buildResult(params.tasks, results, subagentCfg)
+      return buildResult(params.tasks, finalResults, subagentCfg)
     })
 
     return {

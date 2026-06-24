@@ -106,6 +106,12 @@ export function RunFooterSubagentBody(props: {
       return
     }
 
+    if (event.name === "tab" && event.shift) {
+      event.preventDefault()
+      props.onCycle(-1)
+      return
+    }
+
     if (event.name === "up" || event.name === "k") {
       event.preventDefault()
       scroll?.scrollBy(-1)

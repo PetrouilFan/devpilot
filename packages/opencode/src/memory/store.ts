@@ -18,7 +18,12 @@ export function load(fs: FSUtil.Interface, dir: string) {
   return Effect.gen(function* () {
     const content = yield* fs.readFileStringSafe(file)
     if (!content) return emptyMemoryState()
-    const decoded = decodeMemoryState(JSON.parse(content))
+    const parsed = yield* Effect.try({
+      try: () => JSON.parse(content) as ReturnType<typeof JSON.parse>,
+      catch: () => undefined,
+    })
+    if (!parsed) return emptyMemoryState()
+    const decoded = decodeMemoryState(parsed)
     if (decoded._tag === "Success") return decoded.value
     return emptyMemoryState()
   }).pipe(Effect.catch(() => Effect.succeed(emptyMemoryState())))

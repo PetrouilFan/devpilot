@@ -575,12 +575,13 @@ function snapTask(p: ToolProps<typeof TaskTool>): ToolSnapshot {
   const desc = task?.description
   const title = text(p.frame.state.title)
   const rows = [desc || title].filter((item): item is string => Boolean(item))
+  const time = span(p.frame.state)
 
   return {
     kind: "task",
     title: `# ${kind} Task`,
     rows,
-    tail: "",
+    tail: time,
   }
 }
 
@@ -786,11 +787,13 @@ function scrollTaskFinal(p: ToolProps<typeof TaskTool>): string {
   const task = p.input.tasks?.[0]
   const kind = Locale.titlecase(task?.subagent_type || "general")
   const row = task?.description || text(p.frame.state.title)
+  const time = span(p.frame.state)
+
   if (!row) {
-    return `# ${kind} Task`
+    return time ? `# ${kind} Task\n${time}` : `# ${kind} Task`
   }
 
-  return `# ${kind} Task\n${row}`
+  return time ? `# ${kind} Task\n${row}\n${time}` : `# ${kind} Task\n${row}`
 }
 
 function scrollTodoStart(_: ToolProps<typeof TodoWriteTool>): string {

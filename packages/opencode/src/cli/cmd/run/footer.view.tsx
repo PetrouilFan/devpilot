@@ -465,7 +465,11 @@ export function RunFooterView(props: RunFooterViewProps) {
       items.push({ kind: "queued", key: queuedShortcut(), label: `${queue()} queued` })
     }
     if (activeTabs().length > 0 && subagentShortcut()) {
-      items.push({ kind: "subagents", key: subagentShortcut(), label: "subagents" })
+      items.push({
+        kind: "subagents",
+        key: subagentShortcut(),
+        label: `${activeTabs().length} subagent${activeTabs().length === 1 ? "" : "s"}`,
+      })
     }
 
     const limit = responsive().statusline.contextHintLimit

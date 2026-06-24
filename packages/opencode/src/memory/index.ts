@@ -54,42 +54,43 @@ export const layer = Layer.effect(
       }),
     )
 
-    const processTurn = Effect.fn("Memory.processTurn")(function* (input: {
-      userMessage: string
-      assistantMessage: string
-      toolCalls: string[]
-      sessionID: string
-    }) {
-      const cfg = yield* config.get().pipe(Effect.catch(() => Effect.succeed(undefined)))
-      if (cfg?.memory?.enabled === false) return
-      if (!input.userMessage || !input.assistantMessage) return
+const processTurn = Effect.fn("Memory.processTurn")(function* (input: {
+    userMessage: string
+    assistantMessage: string
+    toolCalls: string[]
+    sessionID: string
+  }) {
+    const cfg = yield* config.get().pipe(Effect.catch(() => Effect.succeed(undefined)))
+    if (cfg?.memory?.enabled === false) return
+    if (!input.userMessage || !input.assistantMessage) return
 
-      const confidenceThreshold = cfg?.memory?.fact_confidence_threshold ?? DEFAULT_CONFIDENCE_THRESHOLD
-      const maxFacts = cfg?.memory?.max_facts ?? DEFAULT_MAX_FACTS
+    const confidenceThreshold = cfg?.memory?.fact_confidence_threshold ?? DEFAULT_CONFIDENCE_THRESHOLD
+    const maxFacts = cfg?.memory?.max_facts ?? DEFAULT_MAX_FACTS
 
-      // Extract facts via pattern matching (no LLM call)
-      const result = Extractor.extract(
-        input.userMessage,
-        input.assistantMessage,
-        input.toolCalls,
-      )
+    // Extract facts via pattern matching (no LLM call)
+    const result = Extractor.extract(
+      input.userMessage,
+      input.assistantMessage,
+      input.toolCalls,
+    )
 
-      if (!result.facts || result.facts.length === 0) return
+    if (!result.facts || result.facts.length === 0) return
 
-      // Update state with new facts
-      const current = yield* InstanceState.get(state)
-      let updated = current
-      for (const fact of result.facts) {
-        if (fact.confidence < confidenceThreshold) continue
-        updated = Store.addFact(updated, fact, input.sessionID, maxFacts)
-      }
+    // Update state with new facts
+    const current = yield* InstanceState.get(state)
+    let updated = current
+    for (const fact of result.facts) {
+      if (fact.confidence < confidenceThreshold) continue
+      updated = Store.addFact(updated, fact, input.sessionID, maxFacts)
+    }
 
-      // Persist
-      if (updated !== current) {
-        const ctx = yield* InstanceState.context
-        yield* Store.save(fs, ctx.directory, updated)
-      }
-    })
+    // Persist and invalidate cache so subsequent reads see the update
+    if (updated !== current) {
+      const ctx = yield* InstanceState.context
+      yield* Store.save(fs, ctx.directory, updated)
+      yield* InstanceState.invalidate(state)
+    }
+  })
 
     const getContext = Effect.fn("Memory.getContext")(function* () {
       const cfg = yield* config.get().pipe(Effect.catch(() => Effect.succeed(undefined)))
@@ -144,6 +145,7 @@ export const layer = Layer.effect(
     const clear = Effect.fn("Memory.clear")(function* () {
       const ctx = yield* InstanceState.context
       yield* Store.save(fs, ctx.directory, emptyMemoryState())
+      yield* InstanceState.invalidate(state)
     })
 
     return Service.of({ processTurn, getContext, clear })
