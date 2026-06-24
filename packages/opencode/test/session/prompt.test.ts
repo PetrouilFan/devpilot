@@ -54,6 +54,7 @@ import { TestInstance } from "../fixture/fixture"
 import { awaitWithTimeout, pollWithTimeout, testEffect } from "../lib/effect"
 import { reply, TestLLMServer } from "../lib/llm-server"
 import { RuntimeFlags } from "@/effect/runtime-flags"
+import { Memory } from "@/memory"
 import { ProviderV2 } from "@devpilot-ai/core/provider"
 import { ModelV2 } from "@devpilot-ai/core/model"
 
@@ -179,6 +180,7 @@ function makePrompt(input?: { processor?: "blocking" }) {
     mcp,
     FSUtil.defaultLayer,
     BackgroundJob.defaultLayer,
+    Memory.defaultLayer,
     status,
     Database.defaultLayer,
     EventV2Bridge.defaultLayer,

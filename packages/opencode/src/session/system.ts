@@ -40,7 +40,7 @@ export function provider(model: Provider.Model) {
 
 export interface Interface {
   readonly environment: (model: Provider.Model) => Effect.Effect<string[]>
-  readonly skills: (agent: Agent.Info) => Effect.Effect<string | undefined>
+  readonly skills: (agent: Agent.Info, loadedSkills?: Set<string>) => Effect.Effect<string | undefined>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@devpilot/SystemPrompt") {}
@@ -91,17 +91,20 @@ export const layer = Layer.effect(
         ].filter((part): part is string => part !== undefined)
       }),
 
-      skills: Effect.fn("SystemPrompt.skills")(function* (agent: Agent.Info) {
+      skills: Effect.fn("SystemPrompt.skills")(function* (agent: Agent.Info, loadedSkills?: Set<string>) {
         if (Permission.disabled(["skill"], agent.permission).has("skill")) return
 
         const list = yield* skill.available(agent)
 
+        const header = loadedSkills?.size
+          ? "Skills provide specialized instructions and workflows for specific tasks.\nLoaded skills are available with full instructions below. To load additional skills, prefix your request with /skill-name."
+          : "Skills provide specialized instructions and workflows for specific tasks.\nUse the skill tool to load a skill when a task matches its description.\nPrefix your request with /skill-name to immediately activate a skill for the current turn."
+
         return [
-          "Skills provide specialized instructions and workflows for specific tasks.",
-          "Use the skill tool to load a skill when a task matches its description.",
-          // the agents seem to ingest the information about skills a bit better if we present a more verbose
-          // version of them here and a less verbose version in tool description, rather than vice versa.
-          Skill.fmt(list, { verbose: true }),
+          header,
+          // Already-loaded skills render with full content; unloaded skills render as metadata-only.
+          // This keeps the context window lean — skills are loaded progressively on demand.
+          Skill.fmt(list, { verbose: true, loaded: loadedSkills }),
         ].join("\n")
       }),
     })

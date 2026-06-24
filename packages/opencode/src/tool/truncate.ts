@@ -17,6 +17,12 @@ export const MAX_BYTES = 50 * 1024
 export const DIR = TRUNCATION_DIR
 export const GLOB = path.join(TRUNCATION_DIR, "*")
 
+// Tool output externalization defaults
+const EXTERNALIZE_MIN_CHARS = 12_000
+const PREVIEW_HEAD_CHARS = 2_000
+const PREVIEW_TAIL_CHARS = 1_000
+const EXEMPT_TOOLS = ["read_file", "read_file_tool"]
+
 export type Result = { content: string; truncated: false } | { content: string; truncated: true; outputPath: string }
 
 export interface Options {
@@ -42,6 +48,20 @@ export interface Interface {
    * Resolved truncation limits: values from `tool_output` in opencode config, or MAX_LINES / MAX_BYTES if unset.
    */
   readonly limits: () => Effect.Effect<{ maxLines: number; maxBytes: number }>
+  /**
+   * Returns true if the specified tool name is exempt from output externalization.
+   * Exempt tools avoid persist-read-persist loops.
+   */
+  readonly isExempt: (toolName: string) => Effect.Effect<boolean>
+  /**
+   * Externalization config: thresholds from tool_output config or defaults if unset.
+   */
+  readonly externalizeConfig: () => Effect.Effect<{
+    minChars: number
+    headChars: number
+    tailChars: number
+    exemptTools: string[]
+  }>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@devpilot/Truncate") {}
@@ -82,6 +102,25 @@ export const layer = Layer.effect(
       }
     })
 
+    const externalizeConfig = Effect.fn("Truncate.externalizeConfig")(function* () {
+      const configSvc = yield* Effect.serviceOption(Config.Service)
+      if (Option.isNone(configSvc)) {
+        return { minChars: EXTERNALIZE_MIN_CHARS, headChars: PREVIEW_HEAD_CHARS, tailChars: PREVIEW_TAIL_CHARS, exemptTools: EXEMPT_TOOLS }
+      }
+      const cfg = yield* configSvc.value.get().pipe(Effect.catch(() => Effect.succeed(undefined)))
+      return {
+        minChars: cfg?.tool_output?.externalize_min_chars ?? EXTERNALIZE_MIN_CHARS,
+        headChars: cfg?.tool_output?.preview_head_chars ?? PREVIEW_HEAD_CHARS,
+        tailChars: cfg?.tool_output?.preview_tail_chars ?? PREVIEW_TAIL_CHARS,
+        exemptTools: cfg?.tool_output?.exempt_tools ?? EXEMPT_TOOLS,
+      }
+    })
+
+    const isExempt = Effect.fn("Truncate.isExempt")(function* (toolName: string) {
+      const ext = yield* externalizeConfig()
+      return ext.exemptTools.includes(toolName)
+    })
+
     const output = Effect.fn("Truncate.output")(function* (text: string, options: Options = {}, agent?: Agent.Info) {
       const resolved = yield* limits()
       const maxLines = options.maxLines ?? resolved.maxLines
@@ -89,9 +128,34 @@ export const layer = Layer.effect(
       const direction = options.direction ?? "head"
       const lines = text.split("\n")
       const totalBytes = Buffer.byteLength(text, "utf-8")
+      const totalChars = text.length
 
       if (lines.length <= maxLines && totalBytes <= maxBytes) {
         return { content: text, truncated: false } as const
+      }
+
+      // Use head+tail externalization pattern for large outputs
+      const extCfg = yield* externalizeConfig()
+      if (extCfg.minChars > 0 && totalChars >= extCfg.minChars) {
+        const file = yield* write(text)
+        const headPreview = text.slice(0, extCfg.headChars)
+        const tailPreview = text.slice(-extCfg.tailChars)
+        const removed = totalChars - extCfg.headChars - extCfg.tailChars
+
+        const hint = hasTaskTool(agent)
+          ? `The tool call succeeded but the output was truncated. Full output saved to: ${file}\nUse the Task tool to have explore agent process this file with Grep and Read (with offset/limit). Do NOT read the full file yourself - delegate to save context.`
+          : `The tool call succeeded but the output was truncated. Full output saved to: ${file}\nUse Grep to search the full content or Read with offset/limit to view specific sections.`
+
+        return {
+          content: [
+            headPreview,
+            `\n...${removed} characters truncated...\n`,
+            tailPreview,
+            `\n${hint}`,
+          ].join(""),
+          truncated: true,
+          outputPath: file,
+        } as const
       }
 
       const out: string[] = []
@@ -147,7 +211,7 @@ export const layer = Layer.effect(
       Effect.forkScoped,
     )
 
-    return Service.of({ cleanup, write, output, limits })
+    return Service.of({ cleanup, write, output, limits, isExempt, externalizeConfig })
   }),
 )
 

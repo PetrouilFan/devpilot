@@ -48,6 +48,9 @@ import { TaskTool, type TaskPromptOps } from "@/tool/task"
 import { SessionRunState } from "./run-state"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { EventV2Bridge } from "@/event-v2-bridge"
+import { Memory } from "@/memory"
+import { LoopDetection } from "@/middleware/loop-detection"
+import { ConfigV1 } from "@devpilot-ai/core/v1/config/config"
 import { Database } from "@devpilot-ai/core/database/database"
 import { SessionEvent } from "@devpilot-ai/core/session/event"
 import { SessionMessage } from "@devpilot-ai/core/session/message"
@@ -95,7 +98,7 @@ export interface Interface {
 export class Service extends Context.Service<Service, Interface>()("@devpilot/SessionPrompt") {}
 
 function analyzeComplexity(text: string): boolean {
-  if (text.length < 200) return false
+  if (text.length < 100) return false
   const parallelSignals = [
     /\band\b/i,
     /\balso\b/i,
@@ -129,6 +132,12 @@ function analyzeComplexity(text: string): boolean {
   if (actionCount >= 4) return true
   const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 10)
   if (sentences.length >= 5) return true
+  // Detect explicit enumeration: "1. do X 2. do Y 3. do Z"
+  const enumeratedTasks = text.match(/^\s*\d+[\.\)]\s/gm)
+  if (enumeratedTasks && enumeratedTasks.length >= 3) return true
+  // Detect multiple file paths
+  const filePaths = text.match(/[\w\/\-_.]+\.\w{1,5}\b/g)
+  if (filePaths && filePaths.length >= 3) return true
   return false
 }
 
@@ -161,6 +170,7 @@ export const layer = Layer.effect(
     const llm = yield* LLM.Service
     const events = yield* EventV2Bridge.Service
     const flags = yield* RuntimeFlags.Service
+    const memory = yield* Memory.Service
     const database = yield* Database.Service
     const { db } = database
     const ops = Effect.fn("SessionPrompt.ops")(function* () {
@@ -1168,7 +1178,7 @@ export const layer = Layer.effect(
       return yield* loop({ sessionID: input.sessionID })
     })
 
-    const lastAssistant = Effect.fnUntraced(function* (sessionID: SessionID) {
+    const getAssistantMessage = Effect.fnUntraced(function* (sessionID: SessionID) {
       const match = yield* sessions.findMessage(sessionID, (m) => m.info.role !== "user").pipe(Effect.orDie)
       if (Option.isSome(match)) return match.value
       const msgs = yield* sessions.messages({ sessionID, limit: 1 }).pipe(Effect.orDie)
@@ -1183,7 +1193,12 @@ export const layer = Layer.effect(
         let step = 0
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
 
+        const loopCfg = yield* config.get().pipe(Effect.catch(() => Effect.succeed(undefined as ConfigV1.Info | undefined)))
+        const detector = new LoopDetection.LoopDetector(loopCfg?.loop_detection)
+        const loopWarnings: string[] = []
+
         while (true) {
+          loopWarnings.length = 0
           yield* status.set(sessionID, { type: "busy" })
           yield* Effect.logInfo("loop", { "session.id": sessionID, step })
 
@@ -1205,6 +1220,27 @@ export const layer = Layer.effect(
             lastAssistantMsg?.parts.some(
               (part) => part.type === "tool" && !part.metadata?.providerExecuted && !isOrphanedInterruptedTool(part),
             ) ?? false
+
+          // Record tool calls from the previous turn for loop detection
+          detector.newTurn()
+          if (hasToolCalls && lastAssistantMsg) {
+            for (const part of lastAssistantMsg.parts) {
+              if (part.type === "tool" && !part.metadata?.providerExecuted && !isOrphanedInterruptedTool(part)) {
+                const warning = detector.record(part.tool)
+                if (warning === "HARD_STOP") {
+                  yield* Effect.logWarning("loop detection hard stop", { tool: part.tool })
+                  yield* events.publish(Session.Event.Error, {
+                    sessionID,
+                    error: new NamedError.Unknown({
+                      message: `Loop detected: "${part.tool}" called too many times. Session stopped to prevent runaway.`,
+                    }).toObject(),
+                  })
+                  return yield* getAssistantMessage(sessionID)
+                }
+                if (warning) loopWarnings.push(warning)
+              }
+            }
+          }
 
           if (
             lastAssistant?.finish &&
@@ -1369,13 +1405,35 @@ export const layer = Layer.effect(
 
             yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
 
-            const [skills, env, instructions, modelMsgs] = yield* Effect.all([
-              sys.skills(agent),
+            // Detect already-loaded skills from conversation history so
+            // progressive skill loading can render them with full body.
+            const loadedSkills = (() => {
+              const loaded = new Set<string>()
+              for (const msg of msgs) {
+                if (msg.info.role !== "assistant") continue
+                for (const part of msg.parts) {
+                  if (part.type !== "tool" || part.state.status !== "completed") continue
+                  const output = part.state.output
+                  if (typeof output !== "string") continue
+                  const match = output.match(/<skill_content name="([^"]+)">/)
+                  if (match && match[1]) loaded.add(match[1])
+                }
+              }
+              return loaded
+            })()
+            const [skills, env, instructions, modelMsgs, memoryCtx] = yield* Effect.all([
+              sys.skills(agent, loadedSkills),
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
               MessageV2.toModelMessagesEffect(msgs, model),
+              memory.getContext(),
             ])
-            const system = [...env, ...instructions, ...(skills ? [skills] : [])]
+            const system = [...env, ...instructions, ...(skills ? [skills] : []), ...(memoryCtx ? [memoryCtx] : [])]
+
+            // Inject loop detection warnings into system prompt
+            for (const w of loopWarnings) {
+              system.unshift(`<system-reminder>${w}</system-reminder>`)
+            }
 
             const goal = session.metadata?.goal
             if (goal) {
@@ -1421,6 +1479,35 @@ export const layer = Layer.effect(
               }
             }
 
+            // Token budget enforcement: inject budget warnings into system prompt.
+            // Hard stop is handled at the loop level by checking accumulated tokens
+            // before starting a new LLM turn.
+            const cfgb = yield* config.get().pipe(Effect.catch(() => Effect.succeed(undefined)))
+            if (cfgb?.token_budget?.enabled) {
+              const maxTokens = cfgb.token_budget.max_tokens ?? 200_000
+              // Use tokens from previous finished assistant messages in this session
+              const accumulatedInput = msgs.reduce((sum, m) => sum + (m.info.role === "assistant" ? m.info.tokens.input : 0), 0)
+              const accumulatedOutput = msgs.reduce((sum, m) => sum + (m.info.role === "assistant" ? m.info.tokens.output : 0), 0)
+              const totalTokens = accumulatedInput + accumulatedOutput
+              const warnAt = Math.floor(maxTokens * (cfgb.token_budget.warn_threshold ?? 0.8))
+              const hardStopAt = Math.floor(maxTokens * (cfgb.token_budget.hard_stop_threshold ?? 1.0))
+
+              if (totalTokens >= hardStopAt) {
+                yield* Effect.logWarning("token budget hard stop reached", { total: totalTokens, limit: maxTokens })
+                yield* events.publish(Session.Event.Error, {
+                  sessionID,
+                  error: new NamedError.Unknown({
+                    message: `Token budget of ${maxTokens} tokens reached. Session stopped.`,
+                  }).toObject(),
+                })
+                return "break" as const
+              } else if (totalTokens >= warnAt) {
+                system.push(
+                  `You have used ~${totalTokens} of ${maxTokens} tokens (~${Math.round((totalTokens / maxTokens) * 100)}%). Budget is running low — focus on completing the task.`,
+                )
+              }
+            }
+
             const result = yield* handle.process({
               user: lastUser,
               agent,
@@ -1444,10 +1531,15 @@ export const layer = Layer.effect(
             const finished = handle.message.finish && !["tool-calls", "unknown"].includes(handle.message.finish)
             if (finished && !handle.message.error) {
               // Surface any content-filter finish (e.g. Anthropic stop_reason:
-              // refusal) as an error. These turns may have produced no visible
-              // output at all — previously the session went idle silently — or
-              // partial text that was cut off by the provider's filter.
+              // refusal, Gemini SAFETY, OpenAI content_filter) as an error.
+              // When a provider terminates generation for safety reasons while
+              // still returning tool_calls, those tool calls are typically
+              // truncated/unreliable and must not be executed. The processor
+              // handles stripping them internally.
               if (handle.message.finish === "content-filter") {
+                yield* Effect.logWarning("safety-terminated response", {
+                  finish: handle.message.finish,
+                })
                 handle.message.error = new SessionV1.ContentFilterError({
                   message: "The response was blocked by the provider's content filter",
                 }).toObject()
@@ -1462,6 +1554,23 @@ export const layer = Layer.effect(
                 }).toObject()
                 yield* sessions.updateMessage(handle.message)
                 return "break" as const
+              }
+
+              // Generate follow-up suggestions for finished responses
+              const sCfg = yield* config.get().pipe(Effect.catch(() => Effect.succeed(undefined)))
+              if (sCfg?.suggestions?.enabled) {
+                const count = sCfg.suggestions.count ?? 3
+                const lastAssistantParts = lastAssistantMsg?.parts ?? []
+                const textParts = lastAssistantParts.filter((p): p is SessionV1.TextPart => p.type === "text")
+                const lastText = textParts.map((p) => p.text).join("\n")
+                const hasCode = lastText.includes("```")
+                const suggestions: string[] = []
+                if (hasCode) suggestions.push("Review and apply the proposed changes")
+                suggestions.push("Ask for clarification or more detail")
+                suggestions.push("Request a different approach")
+                suggestions.push("Continue with the next task")
+                handle.message.structured = { _suggestions: suggestions.slice(0, count) }
+                yield* sessions.updateMessage(handle.message)
               }
             }
 
@@ -1485,21 +1594,21 @@ export const layer = Layer.effect(
         }
 
         yield* compaction.prune({ sessionID }).pipe(Effect.ignore, Effect.forkIn(scope))
-        return yield* lastAssistant(sessionID)
+        return yield* getAssistantMessage(sessionID)
       },
     )
 
     const loop: (input: LoopInput) => Effect.Effect<SessionV1.WithParts> = Effect.fn("SessionPrompt.loop")(function* (
       input: LoopInput,
     ) {
-      return yield* state.ensureRunning(input.sessionID, lastAssistant(input.sessionID), runLoop(input.sessionID))
+      return yield* state.ensureRunning(input.sessionID, getAssistantMessage(input.sessionID), runLoop(input.sessionID))
     })
 
     const shell: (input: ShellInput) => Effect.Effect<SessionV1.WithParts, Session.BusyError> = Effect.fn(
       "SessionPrompt.shell",
     )(function* (input: ShellInput) {
       const ready = yield* Latch.make()
-      return yield* state.startShell(input.sessionID, lastAssistant(input.sessionID), shellImpl(input, ready), ready)
+      return yield* state.startShell(input.sessionID, getAssistantMessage(input.sessionID), shellImpl(input, ready), ready)
     })
 
     const command = Effect.fn("SessionPrompt.command")(function* (input: CommandInput) {
@@ -1642,27 +1751,28 @@ export const layer = Layer.effect(
 
 export const defaultLayer = Layer.suspend(() =>
   layer.pipe(
-    Layer.provide(SessionRunState.defaultLayer),
-    Layer.provide(SessionStatus.defaultLayer),
-    Layer.provide(SessionCompaction.defaultLayer),
-    Layer.provide(SessionProcessor.defaultLayer),
-    Layer.provide(Command.defaultLayer),
-    Layer.provide(Permission.defaultLayer),
-    Layer.provide(MCP.defaultLayer),
-    Layer.provide(LSP.defaultLayer),
-    Layer.provide(ToolRegistry.defaultLayer),
-    Layer.provide(Truncate.defaultLayer),
-    Layer.provide(Provider.defaultLayer),
-    Layer.provide(Config.defaultLayer),
-    Layer.provide(Instruction.defaultLayer),
-    Layer.provide(FSUtil.defaultLayer),
-    Layer.provide(Plugin.defaultLayer),
-    Layer.provide(Session.defaultLayer),
-    Layer.provide(SessionRevert.defaultLayer),
-    Layer.provide(SessionSummary.defaultLayer),
-    Layer.provide(Image.defaultLayer),
     Layer.provide(
       Layer.mergeAll(
+        SessionRunState.defaultLayer,
+        SessionStatus.defaultLayer,
+        SessionCompaction.defaultLayer,
+        SessionProcessor.defaultLayer,
+        Command.defaultLayer,
+        Permission.defaultLayer,
+        MCP.defaultLayer,
+        LSP.defaultLayer,
+        ToolRegistry.defaultLayer,
+        Truncate.defaultLayer,
+        Memory.defaultLayer,
+        Provider.defaultLayer,
+        Config.defaultLayer,
+        Instruction.defaultLayer,
+        FSUtil.defaultLayer,
+        Plugin.defaultLayer,
+        Session.defaultLayer,
+        SessionRevert.defaultLayer,
+        SessionSummary.defaultLayer,
+        Image.defaultLayer,
         Agent.defaultLayer,
         Database.defaultLayer,
         SystemPrompt.defaultLayer,
@@ -1794,6 +1904,7 @@ export const node = LayerNode.make(layer, [
   LSP.node,
   ToolRegistry.node,
   Truncate.node,
+  Memory.node,
   Image.node,
   CrossSpawnSpawner.node,
   Instruction.node,

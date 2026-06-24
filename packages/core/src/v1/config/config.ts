@@ -138,10 +138,76 @@ export const Info = Schema.Struct({
       max_bytes: Schema.optional(PositiveInt).annotate({
         description: "Maximum bytes of tool output before it is truncated and saved to disk (default: 51200)",
       }),
+      externalize_min_chars: Schema.optional(PositiveInt).annotate({
+        description: "Minimum characters before tool output is externalized to file with head+tail preview (default: 12000)",
+      }),
+      preview_head_chars: Schema.optional(PositiveInt).annotate({
+        description: "Head preview length in characters for externalized output (default: 2000)",
+      }),
+      preview_tail_chars: Schema.optional(PositiveInt).annotate({
+        description: "Tail preview length in characters for externalized output (default: 1000)",
+      }),
+      exempt_tools: Schema.optional(Schema.Array(Schema.String)).annotate({
+        description: "Tool names exempt from output externalization to avoid read loops (default: [read_file, read_file_tool])",
+      }),
     }),
   ).annotate({
     description:
       "Thresholds for truncating tool output. When output exceeds either limit, the full text is written to the truncation directory and a preview is returned.",
+  }),
+  token_budget: Schema.optional(
+    Schema.Struct({
+      enabled: Schema.optional(Schema.Boolean).annotate({
+        description: "Enable per-run token budget enforcement (default: false)",
+      }),
+      max_tokens: Schema.optional(PositiveInt).annotate({
+        description: "Total token limit (input + output) per run (default: 200000)",
+      }),
+      max_input_tokens: Schema.optional(PositiveInt).annotate({
+        description: "Optional separate input-only limit",
+      }),
+      max_output_tokens: Schema.optional(PositiveInt).annotate({
+        description: "Optional separate output-only limit",
+      }),
+      warn_threshold: Schema.optional(Schema.Number).annotate({
+        description: "Fraction of budget at which to warn the agent (default: 0.8)",
+      }),
+      hard_stop_threshold: Schema.optional(Schema.Number).annotate({
+        description: "Fraction of budget at which to force-stop tool calls (default: 1.0)",
+      }),
+    }),
+  ).annotate({
+    description: "Per-run token budget to prevent runaway API costs",
+  }),
+  memory: Schema.optional(
+    Schema.Struct({
+      enabled: Schema.optional(Schema.Boolean).annotate({
+        description: "Enable persistent cross-session memory (default: true)",
+      }),
+      debounce_seconds: Schema.optional(PositiveInt).annotate({
+        description: "Debounce window in seconds before processing memory updates (default: 30)",
+      }),
+      max_facts: Schema.optional(PositiveInt).annotate({
+        description: "Maximum number of facts to store per project (default: 100)",
+      }),
+      fact_confidence_threshold: Schema.optional(Schema.Number).annotate({
+        description: "Minimum confidence (0.0-1.0) to store a fact (default: 0.7)",
+      }),
+      injection_enabled: Schema.optional(Schema.Boolean).annotate({
+        description: "Whether to inject memory context into the system prompt (default: true)",
+      }),
+      max_injection_tokens: Schema.optional(PositiveInt).annotate({
+        description: "Maximum tokens for memory injection in system prompt (default: 2000)",
+      }),
+      max_injection_facts: Schema.optional(PositiveInt).annotate({
+        description: "Maximum number of facts to inject (default: 15)",
+      }),
+      guaranteed_categories: Schema.optional(Schema.Array(Schema.String)).annotate({
+        description: "Fact categories that bypass the token budget (default: [correction])",
+      }),
+    }),
+  ).annotate({
+    description: "Persistent cross-session memory configuration",
   }),
   compaction: Schema.optional(
     Schema.Struct({
@@ -163,6 +229,50 @@ export const Info = Schema.Struct({
       }),
     }),
   ),
+  loop_detection: Schema.optional(
+    Schema.Struct({
+      enabled: Schema.optional(Schema.Boolean).annotate({
+        description: "Enable loop detection (default: true)",
+      }),
+      warn_threshold: Schema.optional(PositiveInt).annotate({
+        description: "Repeated identical tool calls before warning (default: 3)",
+      }),
+      hard_limit: Schema.optional(PositiveInt).annotate({
+        description: "Repeated identical tool calls before hard stop (default: 5)",
+      }),
+      window_size: Schema.optional(PositiveInt).annotate({
+        description: "Sliding window size for frequency detection (default: 20)",
+      }),
+      tool_freq_warn: Schema.optional(PositiveInt).annotate({
+        description: "Per-tool usage count within window before warning (default: 30)",
+      }),
+      tool_freq_hard_limit: Schema.optional(PositiveInt).annotate({
+        description: "Per-tool usage count within window before hard stop (default: 50)",
+      }),
+      tool_freq_overrides: Schema.optional(
+        Schema.Record(Schema.String, Schema.Struct({
+          warn: Schema.optional(PositiveInt),
+          hard_limit: Schema.optional(PositiveInt),
+        })),
+      ).annotate({
+        description: "Per-tool overrides for frequency thresholds",
+      }),
+    }),
+  ).annotate({
+    description: "Detect and interrupt repeated identical tool-call loops",
+  }),
+  suggestions: Schema.optional(
+    Schema.Struct({
+      enabled: Schema.optional(Schema.Boolean).annotate({
+        description: "Enable follow-up suggestions after each assistant response (default: false)",
+      }),
+      count: Schema.optional(PositiveInt).annotate({
+        description: "Number of suggestions to generate (default: 3)",
+      }),
+    }),
+  ).annotate({
+    description: "Conversation follow-up suggestions shown after each assistant response",
+  }),
   experimental: Schema.optional(
     Schema.Struct({
       disable_paste_summary: Schema.optional(Schema.Boolean),

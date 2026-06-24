@@ -242,9 +242,32 @@ export const layer = Layer.effect(
       }
 
       if (!keep || keep.start === 0) return { head: input.messages, tail_start_id: undefined }
+
+      // Preserve skill content in compaction: scan head messages for tool
+      // outputs containing <skill_content> and extend the tail to include
+      // them, so progressive skill loading survives compaction.
+      let skillTailStart = keep.start
+      let skillTailID = keep.id
+      for (let i = keep.start - 1; i >= 0; i--) {
+        const msg = input.messages[i]
+        if (msg.info.role !== "assistant") continue
+        const hasSkill = msg.parts.some(
+          (p) => p.type === "tool" && p.state.status === "completed" && typeof p.state.output === "string" && p.state.output.includes("<skill_content"),
+        )
+        if (hasSkill) {
+          skillTailStart = i
+          skillTailID = msg.info.id
+          yield* Effect.logInfo("skill preservation extended tail", {
+            index: i,
+            messageID: skillTailID,
+          })
+          break
+        }
+      }
+
       return {
-        head: input.messages.slice(0, keep.start),
-        tail_start_id: keep.id,
+        head: input.messages.slice(0, skillTailStart),
+        tail_start_id: skillTailID,
       }
     })
 

@@ -132,7 +132,23 @@ function wrap<Parameters extends Schema.Decoder<unknown>, Result extends Metadat
             return result
           }
           const agent = yield* agents.get(ctx.agent)
+          // Skip output externalization for exempt tools (e.g. read_file) to
+          // avoid persist-read-persist loops: externalizing creates a file that
+          // the model reads back, which creates another externalization, etc.
+          const exempt = yield* truncate.isExempt(id)
           const truncated = yield* truncate.output(result.output, {}, agent)
+          if (exempt && truncated.truncated) {
+            // For exempt tools, truncate the content but do NOT attach an
+            // outputPath so the model cannot accidentally create a feedback loop.
+            return {
+              ...result,
+              output: truncated.content,
+              metadata: {
+                ...result.metadata,
+                truncated: truncated.truncated,
+              },
+            }
+          }
           return {
             ...result,
             output: truncated.content,

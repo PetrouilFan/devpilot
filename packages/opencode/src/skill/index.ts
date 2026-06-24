@@ -327,21 +327,42 @@ export const defaultLayer = layer.pipe(
   Layer.provide(RuntimeFlags.defaultLayer),
 )
 
-export function fmt(list: Info[], opts: { verbose: boolean }) {
+/**
+ * When `opts.loaded` is provided (a set of already-loaded skill names), those
+ * skills render with their full SKILL.md body as `<skill_content>` blocks.
+ * Unloaded skills render as metadata-only `<skill>` entries.
+ */
+export function fmt(list: Info[], opts: { verbose: boolean; loaded?: Set<string> }) {
   const described = list.filter((skill) => skill.description !== undefined)
   if (described.length === 0) return "No skills are currently available."
   if (opts.verbose) {
+    const loaded = opts.loaded ?? new Set()
     return [
       "<available_skills>",
       ...described
         .toSorted((a, b) => a.name.localeCompare(b.name))
-        .flatMap((skill) => [
-          "  <skill>",
-          `    <name>${skill.name}</name>`,
-          `    <description>${skill.description}</description>`,
-          `    <location>${pathToFileURL(skill.location).href}</location>`,
-          "  </skill>",
-        ]),
+        .flatMap((skill) => {
+          if (loaded.has(skill.name)) {
+            // Already loaded: render full skill content
+            return [
+              "  <skill>",
+              `    <name>${skill.name}</name>`,
+              `    <location>${pathToFileURL(skill.location).href}</location>`,
+              "    <skill_content>",
+              ...skill.content.split("\n").map((line) => `      ${line}`),
+              "    </skill_content>",
+              "  </skill>",
+            ]
+          }
+          // Not yet loaded: show metadata only
+          return [
+            "  <skill>",
+            `    <name>${skill.name}</name>`,
+            `    <description>${skill.description}</description>`,
+            `    <location>${pathToFileURL(skill.location).href}</location>`,
+            "  </skill>",
+          ]
+        }),
       "</available_skills>",
     ].join("\n")
   }
