@@ -203,7 +203,7 @@ export function Session() {
     const parentID = session()?.parentID ?? session()?.id
     return sync.data.session
       .filter((x) => x.parentID === parentID || x.id === parentID)
-      .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .toSorted((a, b) => a.time.created - b.time.created)
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const foregroundTasks = createMemo(() =>
@@ -318,7 +318,7 @@ export function Session() {
   })
 
   let lastSwitch: string | undefined = undefined
-  event.on("message.part.updated", (evt) => {
+  const unsubPartUpdated = event.on("message.part.updated", (evt) => {
     const part = evt.properties.part
     if (part.type !== "tool") return
     if (part.sessionID !== route.sessionID) return
@@ -348,7 +348,7 @@ export function Session() {
   const dialog = useDialog()
   const renderer = useRenderer()
 
-  event.on("session.status", (evt) => {
+  const unsubSessionStatus = event.on("session.status", (evt) => {
     if (evt.properties.sessionID !== route.sessionID) return
     if (evt.properties.status.type !== "retry") return
     if (!evt.properties.status.action) return
@@ -366,6 +366,11 @@ export function Session() {
       if (dontShowAgain) kv.set(keys.dontShow, true)
       kv.set(keys.lastSeenAt, Date.now())
     })
+  })
+
+  onCleanup(() => {
+    unsubPartUpdated()
+    unsubSessionStatus()
   })
 
   // Helper: Find next visible message boundary in direction
@@ -424,6 +429,7 @@ export function Session() {
   const local = useLocal()
 
   function enterChild(sessionID: string) {
+    if (!sync.data.session.some((s) => s.id === sessionID)) return
     navigate({
       type: "session",
       sessionID,

@@ -2,6 +2,7 @@
 import { testRender } from "@opentui/solid"
 import { onMount } from "solid-js"
 import { ArgsProvider } from "../../../../src/context/args"
+import { ExitProvider } from "../../../../src/context/exit"
 import { KVProvider, useKV } from "../../../../src/context/kv"
 import { ProjectProvider, useProject } from "../../../../src/context/project"
 import { SDKProvider } from "../../../../src/context/sdk"
@@ -48,9 +49,11 @@ export async function mount(override?: FetchHandler, state?: string) {
         <KVProvider>
           <SDKProvider url="http://test" directory={directory} fetch={calls.fetch} events={events.source}>
             <ProjectProvider>
-              <SyncProvider>
-                <Probe />
-              </SyncProvider>
+              <ExitProvider exit={() => {}}>
+                <SyncProvider>
+                  <Probe />
+                </SyncProvider>
+              </ExitProvider>
             </ProjectProvider>
           </SDKProvider>
         </KVProvider>

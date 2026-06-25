@@ -31,6 +31,7 @@ const tui: TuiPlugin = async (api) => {
   const errored = new Set<string>()
   const questions = new Set<string>()
   const permissions = new Set<string>()
+  let subagentSoundTimer: ReturnType<typeof setTimeout> | undefined
 
   api.event.on("question.asked", (event) => {
     if (questions.has(event.properties.id)) return
@@ -74,7 +75,19 @@ const tui: TuiPlugin = async (api) => {
     }
 
     const session = api.state.session.get(sessionID)
-    notify(api, sessionID, "Session done", session?.parentID ? "subagent_done" : "done")
+    if (session?.parentID) {
+      if (subagentSoundTimer) clearTimeout(subagentSoundTimer)
+      subagentSoundTimer = setTimeout(() => {
+        subagentSoundTimer = undefined
+        void api.attention.notify({
+          message: "Subagent done",
+          notification: false,
+          sound: { name: "subagent_done", when: "always" },
+        })
+      }, 300)
+    } else {
+      notify(api, sessionID, "Session done", "done")
+    }
   })
 
   api.event.on("session.error", (event) => {

@@ -166,6 +166,10 @@ export function RunFooterSubagentBody(props: {
           <box width="100%" flexDirection="column" gap={0}>
             {commits().length > 0 ? (
               rows()
+            ) : tab()?.status === "running" ? (
+              <text fg={footer().muted} wrapMode="word">
+                Waiting for subagent activity…
+              </text>
             ) : (
               <text fg={footer().muted} wrapMode="word">
                 No subagent activity yet

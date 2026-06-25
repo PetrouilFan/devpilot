@@ -565,6 +565,7 @@ export function RunFooterView(props: RunFooterViewProps) {
     bindings: props.tuiConfig.keybinds.get("session.queued_prompts"),
   }))
 
+  let closeTabTimer: ReturnType<typeof setTimeout> | undefined
   createEffect(() => {
     const current = route()
     if (current.type !== "subagent") {
@@ -572,10 +573,21 @@ export function RunFooterView(props: RunFooterViewProps) {
     }
 
     if (tabs().some((item) => item.sessionID === current.sessionID)) {
+      clearTimeout(closeTabTimer)
+      closeTabTimer = undefined
       return
     }
 
-    closeTab()
+    if (closeTabTimer) return
+
+    closeTabTimer = setTimeout(() => {
+      closeTabTimer = undefined
+      closeTab()
+    }, 100)
+  })
+
+  onCleanup(() => {
+    clearTimeout(closeTabTimer)
   })
 
   createEffect(() => {

@@ -7,6 +7,8 @@ import type { AssistantMessage } from "@devpilot-ai/sdk/v2"
 import { Locale } from "../../util/locale"
 import { useTerminalDimensions } from "@opentui/solid"
 import { useCommandShortcut, useOpencodeKeymap } from "../../keymap"
+import { useSDK } from "../../context/sdk"
+import { useToast } from "../../ui/toast"
 
 export function SubagentFooter() {
   const route = useRouteData("session")
@@ -56,11 +58,23 @@ export function SubagentFooter() {
 
   const { theme } = useTheme()
   const keymap = useOpencodeKeymap()
+  const sdk = useSDK()
+  const toast = useToast()
   const parentShortcut = useCommandShortcut("session.parent")
   const previousShortcut = useCommandShortcut("session.child.previous")
   const nextShortcut = useCommandShortcut("session.child.next")
-  const [hover, setHover] = createSignal<"parent" | "prev" | "next" | null>(null)
+  const interruptShortcut = useCommandShortcut("session.interrupt")
+  const status = createMemo(() => sync.data.session_status[route.sessionID])
+  const running = createMemo(() => status()?.type === "busy" || status()?.type === "retry")
+  const [hover, setHover] = createSignal<"parent" | "prev" | "next" | "cancel" | null>(null)
   useTerminalDimensions()
+
+  const cancelSubagent = () => {
+    void sdk.client.session
+      .abort({ sessionID: route.sessionID })
+      .then(() => toast.show({ message: "Subagent cancelled", variant: "info" }))
+      .catch(() => toast.show({ message: "Failed to cancel subagent", variant: "error" }))
+  }
 
   return (
     <box flexShrink={0}>
@@ -94,6 +108,18 @@ export function SubagentFooter() {
             </Show>
           </box>
           <box flexDirection="row" gap={2}>
+            <Show when={running()}>
+              <box
+                onMouseOver={() => setHover("cancel")}
+                onMouseOut={() => setHover(null)}
+                onMouseUp={() => cancelSubagent()}
+                backgroundColor={hover() === "cancel" ? theme.backgroundElement : theme.backgroundPanel}
+              >
+                <text fg={theme.error}>
+                  Cancel <span style={{ fg: theme.textMuted }}>{interruptShortcut()}</span>
+                </text>
+              </box>
+            </Show>
             <box
               onMouseOver={() => setHover("parent")}
               onMouseOut={() => setHover(null)}

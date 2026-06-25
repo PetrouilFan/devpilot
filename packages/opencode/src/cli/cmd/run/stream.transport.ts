@@ -613,6 +613,9 @@ function createLayer(input: StreamInput) {
             }),
           ).pipe(
             Effect.map((item) => item.data ?? []),
+            Effect.tapError((error) =>
+              Effect.sync(() => input.trace?.write("transport.messages.error", { sessionID, error: String(error) })),
+            ),
             Effect.orElseSucceed(() => []),
           )
 

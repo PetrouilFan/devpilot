@@ -73,7 +73,7 @@ function ensureDetail(data: SubagentData, sessionID: string) {
 
 export function sameSubagentTab(a: FooterSubagentTab | undefined, b: FooterSubagentTab | undefined) {
   if (!a || !b) {
-    return false
+    return a === b
   }
 
   return (
@@ -84,9 +84,7 @@ export function sameSubagentTab(a: FooterSubagentTab | undefined, b: FooterSubag
     a.description === b.description &&
     a.status === b.status &&
     a.background === b.background &&
-    a.title === b.title &&
-    a.toolCalls === b.toolCalls &&
-    a.lastUpdatedAt === b.lastUpdatedAt
+    a.title === b.title
   )
 }
 

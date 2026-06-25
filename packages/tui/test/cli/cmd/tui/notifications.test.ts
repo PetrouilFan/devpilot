@@ -180,6 +180,9 @@ describe("internal notifications TUI plugin", () => {
       properties: { sessionID: "subagent", status: { type: "idle" } },
     })
 
+    // Subagent done sound is debounced (300ms) to batch rapid completions
+    await new Promise((r) => setTimeout(r, 400))
+
     expect(harness.notifications).toEqual([
       {
         title: "Subagent session",
@@ -188,8 +191,7 @@ describe("internal notifications TUI plugin", () => {
         sound: { name: "question", when: "always" },
       },
       {
-        title: "Subagent session",
-        message: "Session done",
+        message: "Subagent done",
         notification: false,
         sound: { name: "subagent_done", when: "always" },
       },
