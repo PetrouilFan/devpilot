@@ -27,7 +27,6 @@ export class Info extends Schema.Class<Info>("AgentV2.Info")({
   hidden: Schema.Boolean,
   color: Color.pipe(Schema.optional),
   steps: PositiveInt.pipe(Schema.optional),
-  doom_loop_threshold: PositiveInt.pipe(Schema.optional),
   permissions: PermissionSchema.Ruleset,
 }) {
   static empty(id: ID) {

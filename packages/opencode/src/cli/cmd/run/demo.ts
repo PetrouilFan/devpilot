@@ -35,7 +35,7 @@ const KINDS = [
   "error",
   "mix",
 ]
-const PERMISSIONS = ["edit", "bash", "read", "task", "external", "doom"] as const
+const PERMISSIONS = ["edit", "bash", "read", "task", "external"] as const
 const QUESTIONS = ["multi", "single", "checklist", "custom"] as const
 
 type PermissionKind = (typeof PERMISSIONS)[number]
@@ -880,25 +880,6 @@ function emitPermission(state: State, kind: PermissionKind = "edit"): void {
       done: {
         title: "read",
         output: `1: # External demo\n2: Shared preview file\nPath: ${target}`,
-        metadata: {},
-      },
-    })
-    return
-  }
-
-  if (kind === "doom") {
-    const ref = make(state, "task", {
-      description: "Retry the formatter after repeated failures",
-      subagent_type: "general",
-    })
-    askPermission(state, {
-      ref,
-      permission: "doom_loop",
-      patterns: ["*"],
-      always: ["*"],
-      done: {
-        title: "Retry allowed",
-        output: "Continuing after repeated failures.\n",
         metadata: {},
       },
     })

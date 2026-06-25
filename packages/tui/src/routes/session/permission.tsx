@@ -359,18 +359,6 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               }
             }
 
-            if (permission === "doom_loop") {
-              return {
-                icon: "⟳",
-                title: "Continue after repeated failures",
-                body: (
-                  <box paddingLeft={1}>
-                    <text fg={theme.textMuted}>This keeps the session running despite repeated failures.</text>
-                  </box>
-                ),
-              }
-            }
-
             return {
               icon: "⚙",
               title: `Call tool ${permission}`,

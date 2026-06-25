@@ -120,10 +120,6 @@ describe("run permission shared", () => {
       lines: ["- /tmp/work/**/*.ts", "- /tmp/work/**/*.tsx"],
     })
 
-    expect(permissionInfo(req({ permission: "doom_loop" }))).toMatchObject({
-      title: "Continue after repeated failures",
-    })
-
     expect(permissionInfo(req({ permission: "custom_tool" }))).toMatchObject({
       title: "Call tool custom_tool",
       lines: ["Tool: custom_tool"],

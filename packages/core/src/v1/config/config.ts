@@ -229,38 +229,6 @@ export const Info = Schema.Struct({
       }),
     }),
   ),
-  loop_detection: Schema.optional(
-    Schema.Struct({
-      enabled: Schema.optional(Schema.Boolean).annotate({
-        description: "Enable loop detection (default: true)",
-      }),
-      warn_threshold: Schema.optional(PositiveInt).annotate({
-        description: "Repeated identical tool calls before warning (default: 3)",
-      }),
-      hard_limit: Schema.optional(PositiveInt).annotate({
-        description: "Repeated identical tool calls before hard stop (default: 5)",
-      }),
-      window_size: Schema.optional(PositiveInt).annotate({
-        description: "Sliding window size for frequency detection (default: 20)",
-      }),
-      tool_freq_warn: Schema.optional(PositiveInt).annotate({
-        description: "Per-tool usage count within window before warning (default: 30)",
-      }),
-      tool_freq_hard_limit: Schema.optional(PositiveInt).annotate({
-        description: "Per-tool usage count within window before hard stop (default: 50)",
-      }),
-      tool_freq_overrides: Schema.optional(
-        Schema.Record(Schema.String, Schema.Struct({
-          warn: Schema.optional(PositiveInt),
-          hard_limit: Schema.optional(PositiveInt),
-        })),
-      ).annotate({
-        description: "Per-tool overrides for frequency thresholds",
-      }),
-    }),
-  ).annotate({
-    description: "Detect and interrupt repeated identical tool-call loops",
-  }),
   suggestions: Schema.optional(
     Schema.Struct({
       enabled: Schema.optional(Schema.Boolean).annotate({

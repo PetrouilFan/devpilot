@@ -49,8 +49,6 @@ import { SessionRunState } from "./run-state"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { Memory } from "@/memory"
-import { LoopDetection } from "@/middleware/loop-detection"
-import { ConfigV1 } from "@devpilot-ai/core/v1/config/config"
 import { Database } from "@devpilot-ai/core/database/database"
 import { SessionEvent } from "@devpilot-ai/core/session/event"
 import { SessionMessage } from "@devpilot-ai/core/session/message"
@@ -1193,12 +1191,7 @@ export const layer = Layer.effect(
         let step = 0
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
 
-        const loopCfg = yield* config.get().pipe(Effect.catch(() => Effect.succeed(undefined as ConfigV1.Info | undefined)))
-        const detector = new LoopDetection.LoopDetector(loopCfg?.loop_detection)
-        const loopWarnings: string[] = []
-
         while (true) {
-          loopWarnings.length = 0
           yield* status.set(sessionID, { type: "busy" })
           yield* Effect.logInfo("loop", { "session.id": sessionID, step })
 
@@ -1220,27 +1213,6 @@ export const layer = Layer.effect(
             lastAssistantMsg?.parts.some(
               (part) => part.type === "tool" && !part.metadata?.providerExecuted && !isOrphanedInterruptedTool(part),
             ) ?? false
-
-          // Record tool calls from the previous turn for loop detection
-          detector.newTurn()
-          if (hasToolCalls && lastAssistantMsg) {
-            for (const part of lastAssistantMsg.parts) {
-              if (part.type === "tool" && !part.metadata?.providerExecuted && !isOrphanedInterruptedTool(part)) {
-                const warning = detector.record(part.tool)
-                if (warning === "HARD_STOP") {
-                  yield* Effect.logWarning("loop detection hard stop", { tool: part.tool })
-                  yield* events.publish(Session.Event.Error, {
-                    sessionID,
-                    error: new NamedError.Unknown({
-                      message: `Loop detected: "${part.tool}" called too many times. Session stopped to prevent runaway.`,
-                    }).toObject(),
-                  })
-                  return yield* getAssistantMessage(sessionID)
-                }
-                if (warning) loopWarnings.push(warning)
-              }
-            }
-          }
 
           if (
             lastAssistant?.finish &&
@@ -1429,11 +1401,6 @@ export const layer = Layer.effect(
               memory.getContext(),
             ])
             const system = [...env, ...instructions, ...(skills ? [skills] : []), ...(memoryCtx ? [memoryCtx] : [])]
-
-            // Inject loop detection warnings into system prompt
-            for (const w of loopWarnings) {
-              system.unshift(`<system-reminder>${w}</system-reminder>`)
-            }
 
             const goal = session.metadata?.goal
             if (goal) {

@@ -382,9 +382,9 @@ rules last.
 everything" and is rarely what the user wants.
 
 Known permission keys: `read, edit, glob, grep, list, bash, task,
-external_directory, todowrite, question, webfetch, websearch, lsp, doom_loop,
+external_directory, todowrite, question, webfetch, websearch, lsp,
 skill`. Some of these (`todowrite,
-question, webfetch, websearch, doom_loop`) only accept a flat
+question, webfetch, websearch`) only accept a flat
 action, not a per-pattern object.
 
 `external_directory` patterns are filesystem paths (use `~/`, absolute paths,

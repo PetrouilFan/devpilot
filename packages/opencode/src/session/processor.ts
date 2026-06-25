@@ -514,35 +514,6 @@ export const layer = Layer.effect(
                 ? { ...value.providerMetadata, providerExecuted: true }
                 : value.providerMetadata,
             }))
-
-            const parts = yield* MessageV2.parts(ctx.assistantMessage.id).pipe(
-              Effect.provideService(Database.Service, database),
-            )
-            const agent = yield* agents.get(ctx.assistantMessage.agent)
-            const doomThreshold = agent.doom_loop_threshold ?? 5
-            const recentParts = parts.slice(-doomThreshold)
-
-            if (
-              recentParts.length !== doomThreshold ||
-              !recentParts.every(
-                (part) =>
-                  part.type === "tool" &&
-                  part.tool === value.name &&
-                  part.state.status !== "pending" &&
-                  isEquivalentInput(part.state.input, input),
-              )
-            ) {
-              return
-            }
-
-            yield* permission.ask({
-              permission: "doom_loop",
-              patterns: [value.name],
-              sessionID: ctx.assistantMessage.sessionID,
-              metadata: { tool: value.name, input },
-              always: [value.name],
-              ruleset: agent.permission,
-            })
             return
           }
 
@@ -1085,21 +1056,5 @@ export const node = LayerNode.make(layer, [
   RuntimeFlags.node,
   Database.node,
 ])
-
-function isEquivalentInput(a: unknown, b: unknown): boolean {
-  if (a === b) return true
-  if (a == null || b == null) return a === b
-  if (typeof a !== typeof b) return false
-  if (typeof a !== "object") return a === b
-  if (Array.isArray(a) !== Array.isArray(b)) return false
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false
-    return a.every((item, i) => isEquivalentInput(item, b[i]))
-  }
-  const keysA = Object.keys(a as Record<string, unknown>)
-  const keysB = Object.keys(b as Record<string, unknown>)
-  if (keysA.length !== keysB.length) return false
-  return keysA.every((key) => isEquivalentInput((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]))
-}
 
 export * as SessionProcessor from "./processor"
